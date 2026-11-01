@@ -66,6 +66,13 @@ ol.steps b{color:var(--text)}
 code{background:var(--panel2);padding:2px 6px;border-radius:6px;font-size:13px;word-break:break-all;color:var(--text)}
 .list{font-size:14px;color:var(--muted);max-height:220px;overflow:auto;background:var(--panel);border-radius:12px;padding:10px 12px;white-space:pre-wrap}
 .hidden{display:none!important}
+.topline{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.turn{font-weight:800;font-size:18px;color:var(--accent);text-align:center;min-height:24px;margin-top:6px}
+.timer{font-variant-numeric:tabular-nums;font-weight:800;font-size:44px;color:var(--text);min-height:52px}
+.timer.low{color:var(--pink)}
+details.rules{background:var(--panel);border-radius:12px;padding:12px 14px;margin-top:16px;color:var(--muted)}
+details.rules summary{color:var(--text);font-weight:700;cursor:pointer}
+details.rules li{margin:6px 0}
 </style>
 </head>
 <body>
@@ -95,6 +102,7 @@ code{background:var(--panel2);padding:2px 6px;border-radius:6px;font-size:13px;w
     <select id="deckSel"></select>
     <p class="note" id="deckInfo"></p>
     <button class="btn primary" id="btnBegin">Starta</button>
+    <button class="btn secondary hidden" id="btnNewRound">Ny omgång (alla låtar tillbaka)</button>
     <div class="card" style="margin-top:18px">
       <p style="margin:0"><b>Innan ni börjar:</b> öppna Spotify-appen och spela valfri låt några sekunder så att telefonen syns som enhet. Stäng gärna av Spotifys notis på låsskärmen så att titeln inte syns.</p>
     </div>
@@ -105,6 +113,7 @@ code{background:var(--panel2);padding:2px 6px;border-radius:6px;font-size:13px;w
     <div class="counter" id="counter"></div>
     <div class="stage" id="stage">
       <div class="disc" id="disc"></div>
+      <div class="timer hidden" id="timer"></div>
       <div class="status" id="gameMsg">Tryck på Nästa låt</div>
     </div>
     <div class="stage hidden" id="reveal">
@@ -120,10 +129,13 @@ code{background:var(--panel2);padding:2px 6px;border-radius:6px;font-size:13px;w
         <button class="btn secondary" id="btnPause">Pausa</button>
         <button class="btn secondary" id="btnReplay">Spela om</button>
       </div>
+      <button class="btn secondary" id="btnSkip">Byt låt (polett)</button>
+      <button class="btn ghost" id="btnEnd2">Avsluta / byt lek</button>
     </div>
     <div id="ctlNext">
       <button class="btn primary" id="btnNext">Nästa låt</button>
       <button class="btn ghost hidden" id="btnWrong">Fel låt spelades? Markera</button>
+      <button class="btn ghost" id="btnEnd">Avsluta / byt lek</button>
     </div>
   </section>
 
@@ -136,18 +148,37 @@ code{background:var(--panel2);padding:2px 6px;border-radius:6px;font-size:13px;w
       <option value="30">30 sekunder in</option>
       <option value="rnd">Slumpat ställe</option>
     </select>
+    <label for="timerSel">Gissningstid</label>
+    <select id="timerSel">
+      <option value="0">Ingen klocka</option>
+      <option value="30">30 sekunder</option>
+      <option value="45">45 sekunder</option>
+      <option value="60">60 sekunder</option>
+    </select>
+    <details class="rules">
+      <summary>Regler i korthet</summary>
+      <ol>
+        <li>Alla börjar med ett kort: tryck <b>Nästa låt</b> och <b>Visa svar</b> en gång per spelare och skriv upp årtalet.</li>
+        <li>På din tur: lyssna och bestäm var låten hör hemma i din tidslinje, före, mellan eller efter dina kort.</li>
+        <li>Tryck <b>Visa svar</b>. Rätt plats: skriv årtalet på en lapp och lägg in den. Fel: ingen lapp.</li>
+        <li>Först till 10 kort i rätt ordning vinner.</li>
+        <li>Extra: gissar du både artist och titel rätt får du en polett. Lämna in en polett för att byta låt med <b>Byt låt (polett)</b>, eller för att utmana någon annans placering.</li>
+      </ol>
+    </details>
     <button class="btn secondary" id="btnReshuffle">Blanda om leken (börja om)</button>
     <label>Markerade låtar (skicka listan till Claude)</label>
     <div class="list" id="wrongList">Inga markerade låtar.</div>
     <button class="btn secondary" id="btnCopyWrong">Kopiera listan</button>
     <button class="btn secondary" id="btnLogout">Logga ut från Spotify</button>
     <button class="btn ghost" id="btnBack">Tillbaka</button>
+    <p class="note" id="verInfo"></p>
   </section>
 </main>
 
 <script>
 "use strict";
 /* ---------- Lekar (kodade så att listan inte syns av misstag) ---------- */
+const VERSION = 9;
 const DECKS_B64 = "eyJzdmVuc2thIjogeyJuYW1lIjogIlN2ZW5za2EgaGl0cyIsICJzb25ncyI6IFt7ImEiOiAiQWxpY2UgQmFicyIsICJ0IjogIlN3aW5nIGl0LCBtYWdpc3Rlcm4iLCAieSI6IDE5NDB9LCB7ImEiOiAiTGlsbC1CYWJzIiwgInQiOiAiw4RyIGR1IGvDpHIgaSBtZWogw6RubnUgS2xhcy1Hw7ZyYW4/IiwgInkiOiAxOTU5fSwgeyJhIjogIk93ZSBUaMO2cm5xdmlzdCIsICJ0IjogIlZhcm0ga29ydiBib29naWUiLCAieSI6IDE5NTl9LCB7ImEiOiAiTW9uaWNhIFpldHRlcmx1bmQiLCAidCI6ICJWaXNhIGZyw6VuIFV0YW5teXJhIiwgInkiOiAxOTY0fSwgeyJhIjogIlN2ZW4tSW5ndmFycyIsICJ0IjogIkZyw7ZrZW4gRnLDpGtlbiIsICJ5IjogMTk2NH0sIHsiYSI6ICJUYWdlcyIsICJ0IjogIlNsZWVwIExpdHRsZSBHaXJsIiwgInkiOiAxOTY0fSwgeyJhIjogIkhlcCBTdGFycyIsICJ0IjogIkNhZGlsbGFjIiwgInkiOiAxOTY1fSwgeyJhIjogIkhlcCBTdGFycyIsICJ0IjogIlN1bm55IEdpcmwiLCAieSI6IDE5NjZ9LCB7ImEiOiAiTWF0cyBQYXVsc29uIiwgInQiOiAiVmlzYSB2aWQgdmluZGVucyDDpG5nYXIiLCAieSI6IDE5NjZ9LCB7ImEiOiAiQWduZXRoYSBGw6RsdHNrb2ciLCAidCI6ICJKYWcgdmFyIHPDpSBrw6RyIiwgInkiOiAxOTY3fSwgeyJhIjogIkFubmEtTGVuYSBMw7ZmZ3JlbiIsICJ0IjogIkx5Y2tsaWdhIGdhdGFuIiwgInkiOiAxOTY3fSwgeyJhIjogIkFubmktRnJpZCBMeW5nc3RhZCIsICJ0IjogIkVuIGxlZGlnIGRhZyIsICJ5IjogMTk2N30sIHsiYSI6ICLDlnN0ZW4gV2FybmVyYnJpbmciLCAidCI6ICJTb20gZW4gZHLDtm0iLCAieSI6IDE5Njd9LCB7ImEiOiAiT2xhICYgdGhlIEphbmdsZXJzIiwgInQiOiAiTGV0J3MgRGFuY2UiLCAieSI6IDE5Njl9LCB7ImEiOiAiUHVnaCBSb2dlZmVsZHQiLCAidCI6ICJTbcOlIGzDpHR0YSBtb2xuIiwgInkiOiAxOTY5fSwgeyJhIjogIkhvb2xhIEJhbmRvb2xhIEJhbmQiLCAidCI6ICJWZW0ga2FuIG1hbiBsaXRhIHDDpT8iLCAieSI6IDE5NzJ9LCB7ImEiOiAiVGVkIEfDpHJkZXN0YWQiLCAidCI6ICJKYWcgdmlsbCBoYSBlbiBlZ2VuIG3DpW5lIiwgInkiOiAxOTcyfSwgeyJhIjogIlRlZCBHw6RyZGVzdGFkIiwgInQiOiAiQ29tZSBHaXZlIE1lIExvdmUiLCAieSI6IDE5NzN9LCB7ImEiOiAiVGhvcmxlaWZzIiwgInQiOiAiR3LDpXQgaW5nYSB0w6VyYXIiLCAieSI6IDE5NzR9LCB7ImEiOiAiQUJCQSIsICJ0IjogIlNPUyIsICJ5IjogMTk3NX0sIHsiYSI6ICJBQkJBIiwgInQiOiAiRGFuY2luZyBRdWVlbiIsICJ5IjogMTk3Nn0sIHsiYSI6ICJBQkJBIiwgInQiOiAiTW9uZXksIE1vbmV5LCBNb25leSIsICJ5IjogMTk3Nn0sIHsiYSI6ICJBQkJBIiwgInQiOiAiS25vd2luZyBNZSwgS25vd2luZyBZb3UiLCAieSI6IDE5NzZ9LCB7ImEiOiAiQUJCQSIsICJ0IjogIlRoZSBOYW1lIG9mIHRoZSBHYW1lIiwgInkiOiAxOTc3fSwgeyJhIjogIk1hZ251cyBVZ2dsYSIsICJ0IjogIlZhcm5pbmcgcMOlIHN0YW4iLCAieSI6IDE5Nzd9LCB7ImEiOiAiRmFjdG9yeSIsICJ0IjogIkVmdGVyIHBsdWdnZXQiLCAieSI6IDE5Nzh9LCB7ImEiOiAiTGlsbCBMaW5kZm9ycyIsICJ0IjogIk11c2lrIHNrYSBieWdnYXMgdXRhdiBnbMOkZGplIiwgInkiOiAxOTc4fSwgeyJhIjogIk5hdGlvbmFsdGVhdGVybiIsICJ0IjogIkJhcm4gYXYgdsOlciB0aWQiLCAieSI6IDE5Nzh9LCB7ImEiOiAiQUJCQSIsICJ0IjogIkNoaXF1aXRpdGEiLCAieSI6IDE5Nzl9LCB7ImEiOiAiQUJCQSIsICJ0IjogIlZvdWxlei1Wb3VzIiwgInkiOiAxOTc5fSwgeyJhIjogIlNlY3JldCBTZXJ2aWNlIiwgInQiOiAiT2ggU3VzaWUiLCAieSI6IDE5Nzl9LCB7ImEiOiAiQUJCQSIsICJ0IjogIlRoZSBXaW5uZXIgVGFrZXMgSXQgQWxsIiwgInkiOiAxOTgwfSwgeyJhIjogIkNvcm5lbGlzIFZyZWVzd2lqayIsICJ0IjogIkZlbGljaWEg4oCTIGFkasO2IiwgInkiOiAxOTgwfSwgeyJhIjogIkViYmEgR3LDtm4iLCAidCI6ICJTdGF0ZW4gb2NoIGthcGl0YWxldCIsICJ5IjogMTk4MH0sIHsiYSI6ICJGcmVlc3R5bGUiLCAidCI6ICJWaWxsIGhhIGRlaiIsICJ5IjogMTk4MH0sIHsiYSI6ICJHeWxsZW5lIFRpZGVyIiwgInQiOiAiRmxpY2tvcm5hIHDDpSBUVjIiLCAieSI6IDE5ODB9LCB7ImEiOiAiR3lsbGVuZSBUaWRlciIsICJ0IjogIkp1bmksIGp1bGksIGF1Z3VzdGkiLCAieSI6IDE5ODF9LCB7ImEiOiAiTWlrYWVsIFdpZWhlIiwgInQiOiAiRmxpY2thbiBvY2gga3LDpWthbiIsICJ5IjogMTk4MX0sIHsiYSI6ICJHeWxsZW5lIFRpZGVyIiwgInQiOiAiU29tbWFydGlkZXIiLCAieSI6IDE5ODJ9LCB7ImEiOiAiVWxmIEx1bmRlbGwiLCAidCI6ICLDlnBwbmEgbGFuZHNrYXAiLCAieSI6IDE5ODJ9LCB7ImEiOiAiVG9tYXMgTGVkaW4iLCAidCI6ICJTb21tYXJlbiDDpHIga29ydCIsICJ5IjogMTk4M30sIHsiYSI6ICJNYXJpZSBGcmVkcmlrc3NvbiIsICJ0IjogIsOEbm51IGRvZnRhciBrw6RybGVrIiwgInkiOiAxOTg0fSwgeyJhIjogIkV1cm9wZSIsICJ0IjogIkNoZXJva2VlIiwgInkiOiAxOTg2fSwgeyJhIjogIktpa2tpIERhbmllbHNzb24iLCAidCI6ICJQYXBheWEgQ29jb251dCIsICJ5IjogMTk4Nn0sIHsiYSI6ICJMYXNzZSBIb2xtIiwgInQiOiAiQ2FubmVsb25pIE1hY2Fyb25pIiwgInkiOiAxOTg2fSwgeyJhIjogIlJhdGF0YSIsICJ0IjogIlPDpSBsw6RuZ2UgdmkgaGFyIHZhcmFuZHJhIiwgInkiOiAxOTg3fSwgeyJhIjogIlRob21hcyBEaSBMZXZhIiwgInQiOiAiVmVtIHNrYSBqYWcgdHJvIHDDpT8iLCAieSI6IDE5ODd9LCB7ImEiOiAiRXVyb3BlIiwgInQiOiAiU3VwZXJzdGl0aW91cyIsICJ5IjogMTk4OH0sIHsiYSI6ICJPcnVwIiwgInQiOiAiSmFnIGJsaXIgaGVsbHJlIGphZ2FkIGF2IHZhcmdhciIsICJ5IjogMTk4OH0sIHsiYSI6ICJSb3hldHRlIiwgInQiOiAiRGFuZ2Vyb3VzIiwgInkiOiAxOTg4fSwgeyJhIjogIkV2YSBEYWhsZ3JlbiIsICJ0IjogIsOEbmdlbG4gaSBydW1tZXQiLCAieSI6IDE5ODl9LCB7ImEiOiAiSmFrb2IgSGVsbG1hbiIsICJ0IjogIlZhcmEgdsOkbm5lciIsICJ5IjogMTk4OX0sIHsiYSI6ICJOZW5laCBDaGVycnkiLCAidCI6ICJNYW5jaGlsZCIsICJ5IjogMTk4OX0sIHsiYSI6ICJOZW5laCBDaGVycnkiLCAidCI6ICJLaXNzZXMgb24gdGhlIFdpbmQiLCAieSI6IDE5ODl9LCB7ImEiOiAiQmrDtnJuIEFmemVsaXVzIiwgInQiOiAiVHVzZW4gYml0YXIiLCAieSI6IDE5OTB9LCB7ImEiOiAiRHIuIEFsYmFuIiwgInQiOiAiTm8gQ29rZSIsICJ5IjogMTk5MH0sIHsiYSI6ICJEci4gQWxiYW4iLCAidCI6ICJIZWxsbyBBZnJpa2EiLCAieSI6IDE5OTB9LCB7ImEiOiAiQXJteSBvZiBMb3ZlcnMiLCAidCI6ICJPYnNlc3Npb24iLCAieSI6IDE5OTF9LCB7ImEiOiAiUm94ZXR0ZSIsICJ0IjogIkpveXJpZGUiLCAieSI6IDE5OTF9LCB7ImEiOiAiUm94ZXR0ZSIsICJ0IjogIkZhZGluZyBMaWtlIGEgRmxvd2VyIiwgInkiOiAxOTkxfSwgeyJhIjogIlJveGV0dGUiLCAidCI6ICJTcGVuZGluZyBNeSBUaW1lIiwgInkiOiAxOTkxfSwgeyJhIjogIlJveGV0dGUiLCAidCI6ICJUaGUgQmlnIEwuIiwgInkiOiAxOTkxfSwgeyJhIjogIkFjZSBvZiBCYXNlIiwgInQiOiAiV2hlZWwgb2YgRm9ydHVuZSIsICJ5IjogMTk5Mn0sIHsiYSI6ICJBY2Ugb2YgQmFzZSIsICJ0IjogIkhhcHB5IE5hdGlvbiIsICJ5IjogMTk5Mn0sIHsiYSI6ICJBcm15IG9mIExvdmVycyIsICJ0IjogIklzcmFlbGlzbSIsICJ5IjogMTk5M30sIHsiYSI6ICJQYW5kb3JhIiwgInQiOiAiVHJ1c3QgTWUiLCAieSI6IDE5OTN9LCB7ImEiOiAiRHIuIEFsYmFuIiwgInQiOiAiTG9vayBXaG8ncyBUYWxraW5nIiwgInkiOiAxOTk0fSwgeyJhIjogIk5lbmVoIENoZXJyeSwgWW91c3NvdSBOJ0RvdXIiLCAidCI6ICI3IFNlY29uZHMiLCAieSI6IDE5OTR9LCB7ImEiOiAiTm9yZG1hbiIsICJ0IjogIlZhbmRyYXJlbiIsICJ5IjogMTk5NH0sIHsiYSI6ICJSb3hldHRlIiwgInQiOiAiU2xlZXBpbmcgaW4gTXkgQ2FyIiwgInkiOiAxOTk0fSwgeyJhIjogIlRoZSBDYXJkaWdhbnMiLCAidCI6ICJSaXNlICYgU2hpbmUiLCAieSI6IDE5OTR9LCB7ImEiOiAiVGhlIFdhbm5hZGllcyIsICJ0IjogIllvdSBhbmQgTWUgU29uZyIsICJ5IjogMTk5NH0sIHsiYSI6ICJVbm8gU3Zlbm5pbmdzc29uIiwgInQiOiAiVW5kZXIgeXRhbiIsICJ5IjogMTk5NH0sIHsiYSI6ICJSZWRuZXgiLCAidCI6ICJXaXNoIFlvdSBXZXJlIEhlcmUiLCAieSI6IDE5OTV9LCB7ImEiOiAiR3lsbGVuZSBUaWRlciIsICJ0IjogIkfDpSAmIGZpc2thISIsICJ5IjogMTk5Nn0sIHsiYSI6ICJrZW50IiwgInQiOiAiS3LDpG0gKHPDpSBuw6RyYSBmw6VyIGluZ2VuIGfDpSkiLCAieSI6IDE5OTZ9LCB7ImEiOiAia2VudCIsICJ0IjogIjc0NyIsICJ5IjogMTk5Nn0sIHsiYSI6ICJQZXIgR2Vzc2xlIiwgInQiOiAiSMOkciBrb21tZXIgYWxsYSBrw6Ruc2xvcm5hIChww6UgZW4gb2NoIHNhbW1hIGfDpW5nKSIsICJ5IjogMTk5N30sIHsiYSI6ICJSb2J5biIsICJ0IjogIlNob3cgTWUgTG92ZSIsICJ5IjogMTk5N30sIHsiYSI6ICJrZW50IiwgInQiOiAiT20gZHUgdmFyIGjDpHIiLCAieSI6IDE5OTd9LCB7ImEiOiAiQWNlIG9mIEJhc2UiLCAidCI6ICJDcnVlbCBTdW1tZXIiLCAieSI6IDE5OTh9LCB7ImEiOiAiRS1UeXBlIiwgInQiOiAiQW5nZWxzIENyeWluZyIsICJ5IjogMTk5OH0sIHsiYSI6ICJBbmRyZWFzIEpvaG5zb24iLCAidCI6ICJHbG9yaW91cyIsICJ5IjogMTk5OX0sIHsiYSI6ICJSb3hldHRlIiwgInQiOiAiV2lzaCBJIENvdWxkIEZseSIsICJ5IjogMTk5OX0sIHsiYSI6ICJBbGNhemFyIiwgInQiOiAiQ3J5aW5nIGF0IHRoZSBEaXNjb3RlcXVlIiwgInkiOiAyMDAwfSwgeyJhIjogIkjDpWthbiBIZWxsc3Ryw7ZtIiwgInQiOiAiS8Okbm4gaW5nZW4gc29yZyBmw7ZyIG1pZyBHw7Z0ZWJvcmciLCAieSI6IDIwMDB9LCB7ImEiOiAiVGhlIEFyayIsICJ0IjogIkl0IFRha2VzIGEgRm9vbCB0byBSZW1haW4gU2FuZSIsICJ5IjogMjAwMH0sIHsiYSI6ICJUaGUgSGl2ZXMiLCAidCI6ICJNYWluIE9mZmVuZGVyIiwgInkiOiAyMDAwfSwgeyJhIjogIk1lbG9keSBDbHViIiwgInQiOiAiUGFsYWNlIFN0YXRpb24iLCAieSI6IDIwMDJ9LCB7ImEiOiAiQWxjYXphciIsICJ0IjogIlRoaXMgSXMgdGhlIFdvcmxkIFdlIExpdmUgSW4iLCAieSI6IDIwMDR9LCB7ImEiOiAiQW5hIEpvaG5zc29uIiwgInQiOiAiV2UgQXJlIiwgInkiOiAyMDA0fSwgeyJhIjogIkRhbmllbCBMaW5kc3Ryw7ZtIiwgInQiOiAiQ29taW5nIFRydWUiLCAieSI6IDIwMDR9LCB7ImEiOiAiU2FoYXJhIEhvdG5pZ2h0cyIsICJ0IjogIkFscmlnaHQgQWxyaWdodCAoSGVyZSdzIE15IEZpc3QgV2hlcmUncyB0aGUgRmlnaHQ/KSIsICJ5IjogMjAwNH0sIHsiYSI6ICJUaGUgQXJrIiwgInQiOiAiT25lIG9mIFVzIElzIEdvbm5hIERpZSBZb3VuZyIsICJ5IjogMjAwNH0sIHsiYSI6ICJUaGUgSGl2ZXMiLCAidCI6ICJXYWxrIElkaW90IFdhbGsiLCAieSI6IDIwMDR9LCB7ImEiOiAiQW15IERpYW1vbmQiLCAidCI6ICJXaGF0J3MgaW4gSXQgZm9yIE1lIiwgInkiOiAyMDA1fSwgeyJhIjogIkRhcmluIiwgInQiOiAiTW9uZXkgZm9yIE5vdGhpbmciLCAieSI6IDIwMDV9LCB7ImEiOiAiTGFsZWgiLCAidCI6ICJMaXZlIFRvbW9ycm93IiwgInkiOiAyMDA1fSwgeyJhIjogIk1vbmV5YnJvdGhlciIsICJ0IjogIlRoZXkncmUgQnVpbGRpbmcgV2FsbHMgQXJvdW5kIFVzIiwgInkiOiAyMDA1fSwgeyJhIjogIlJvYnluIiwgInQiOiAiQmUgTWluZSEiLCAieSI6IDIwMDV9LCB7ImEiOiAiU2FiYXRvbiIsICJ0IjogIlByaW1vIFZpY3RvcmlhIiwgInkiOiAyMDA1fSwgeyJhIjogIlRoZSBDYXJkaWdhbnMiLCAidCI6ICJJIE5lZWQgU29tZSBGaW5lIFdpbmUgYW5kIFlvdSwgWW91IE5lZWQgdG8gQmUgTmljZXIiLCAieSI6IDIwMDV9LCB7ImEiOiAiRmFtaWxqZW4iLCAidCI6ICJEZXQgc251cnJhciBpIG1pbiBza2FsbGUiLCAieSI6IDIwMDZ9LCB7ImEiOiAiTGluZGEgU3VuZGJsYWQiLCAidCI6ICJPaCBGYXRoZXIiLCAieSI6IDIwMDZ9LCB7ImEiOiAiTWFuZG8gRGlhbyIsICJ0IjogIkRvd24gaW4gdGhlIFBhc3QiLCAieSI6IDIwMDZ9LCB7ImEiOiAiQmFzc2h1bnRlciIsICJ0IjogIk5vdyBZb3UncmUgR29uZSIsICJ5IjogMjAwN30sIHsiYSI6ICJMYXJzIFdpbm5lcmLDpGNrLCBNaXNzIExpIiwgInQiOiAiT20gZHUgbMOkbW5hZGUgbWlnIG51IiwgInkiOiAyMDA3fSwgeyJhIjogIk1pc3MgTGkiLCAidCI6ICJCb3VyZ2VvaXMgU2hhbmdyaS1MYSIsICJ5IjogMjAwN30sIHsiYSI6ICJBZ25lcyIsICJ0IjogIlJlbGVhc2UgTWUiLCAieSI6IDIwMDh9LCB7ImEiOiAiQmFzc2h1bnRlciIsICJ0IjogIkFsbCBJIEV2ZXIgV2FudGVkIiwgInkiOiAyMDA4fSwgeyJhIjogIkVyaWMgUHJ5ZHoiLCAidCI6ICJQamFub28iLCAieSI6IDIwMDh9LCB7ImEiOiAiRXJpayBIYXNzbGUiLCAidCI6ICJIdXJ0ZnVsIiwgInkiOiAyMDA5fSwgeyJhIjogIk1vaG9tYmkiLCAidCI6ICJCdW1weSBSaWRlIiwgInkiOiAyMDEwfSwgeyJhIjogIk9za2FyIExpbm5yb3MiLCAidCI6ICJBY2sgU3VuZHN2YWxsIiwgInkiOiAyMDEwfSwgeyJhIjogIlN3ZWRpc2ggSG91c2UgTWFmaWEiLCAidCI6ICJPbmUgKFlvdXIgTmFtZSkiLCAieSI6IDIwMTB9LCB7ImEiOiAiU3dlZGlzaCBIb3VzZSBNYWZpYSIsICJ0IjogIk1pYW1pIDIgSWJpemEiLCAieSI6IDIwMTB9LCB7ImEiOiAiQXZpY2lpIiwgInQiOiAiRmFkZSBpbnRvIERhcmtuZXNzIiwgInkiOiAyMDExfSwgeyJhIjogIkxvcmVlbiIsICJ0IjogIk15IEhlYXJ0IElzIFJlZnVzaW5nIE1lIiwgInkiOiAyMDExfSwgeyJhIjogIlJvYnluIiwgInQiOiAiQ2FsbCBZb3VyIEdpcmxmcmllbmQiLCAieSI6IDIwMTF9LCB7ImEiOiAiVmVyb25pY2EgTWFnZ2lvIiwgInQiOiAiU2F0YW4gaSBnYXRhbiIsICJ5IjogMjAxMX0sIHsiYSI6ICJGaXJzdCBBaWQgS2l0IiwgInQiOiAiRW1teWxvdSIsICJ5IjogMjAxMn0sIHsiYSI6ICJMYWxlaCIsICJ0IjogIlNvbWUgRGllIFlvdW5nIiwgInkiOiAyMDEyfSwgeyJhIjogIk1pcmlhbSBCcnlhbnQiLCAidCI6ICJGaW5kZXJzLCBLZWVwZXJzIiwgInkiOiAyMDEyfSwgeyJhIjogIk90dG8gS25vd3MiLCAidCI6ICJNaWxsaW9uIFZvaWNlcyIsICJ5IjogMjAxMn0sIHsiYSI6ICJQZXRyYSBNYXJrbHVuZCIsICJ0IjogIkjDpG5kZXJuYSBtb3QgaGltbGVuIiwgInkiOiAyMDEyfSwgeyJhIjogIlN0aWZ0ZWxzZW4iLCAidCI6ICJWYXJ0IGphZyDDpG4gZ8OlciIsICJ5IjogMjAxMn0sIHsiYSI6ICJJY29uYSBQb3AiLCAidCI6ICJBbGwgTmlnaHQiLCAieSI6IDIwMTN9LCB7ImEiOiAiTWFwZWkiLCAidCI6ICJEb24ndCBXYWl0IiwgInkiOiAyMDEzfSwgeyJhIjogIlZlcm9uaWNhIE1hZ2dpbyIsICJ0IjogIlNlcmdlbHMgdG9yZyIsICJ5IjogMjAxM30sIHsiYSI6ICJaYXJhIExhcnNzb24iLCAidCI6ICJVbmNvdmVyIiwgInkiOiAyMDEzfSwgeyJhIjogIkF2aWNpaSIsICJ0IjogIlRoZSBOaWdodHMiLCAieSI6IDIwMTR9LCB7ImEiOiAiVG92ZSBMbyIsICJ0IjogIlRhbGtpbmcgQm9keSIsICJ5IjogMjAxNH0sIHsiYSI6ICJEYXJpbiIsICJ0IjogIkVuIGFwYSBzb20gbGlrbmFyIGRpZyIsICJ5IjogMjAxNX0sIHsiYSI6ICJTZWluYWJvIFNleSIsICJ0IjogIlBpc3RvbHMgYXQgRGF3biIsICJ5IjogMjAxNX0sIHsiYSI6ICJHaG9zdCIsICJ0IjogIlNxdWFyZSBIYW1tZXIiLCAieSI6IDIwMTZ9LCB7ImEiOiAiVG92ZSBMbyIsICJ0IjogIkNvb2wgR2lybCIsICJ5IjogMjAxNn0sIHsiYSI6ICJBeHdlbGwgL1xcIEluZ3Jvc3NvIiwgInQiOiAiTW9yZSBUaGFuIFlvdSBLbm93IiwgInkiOiAyMDE3fSwgeyJhIjogIlRvdmUgU3R5cmtlIiwgInQiOiAiU2F5IE15IE5hbWUiLCAieSI6IDIwMTd9LCB7ImEiOiAiWmFyYSBMYXJzc29uIiwgInQiOiAiUnVpbiBNeSBMaWZlIiwgInkiOiAyMDE4fSwgeyJhIjogIkFCQkEiLCAidCI6ICJEb24ndCBTaHV0IE1lIERvd24iLCAieSI6IDIwMjF9LCB7ImEiOiAiQUJCQSIsICJ0IjogIkkgU3RpbGwgSGF2ZSBGYWl0aCBpbiBZb3UiLCAieSI6IDIwMjF9LCB7ImEiOiAiTWlyaWFtIEJyeWFudCIsICJ0IjogIk1pdHQgaGrDpHJ0YSBibMO2ZGVyIiwgInkiOiAyMDIxfSwgeyJhIjogIk1vbGx5IEhhbW1hciIsICJ0IjogIkluZ2VuIGFubmFuIHLDtnIgbWlnIHNvbSBkdSIsICJ5IjogMjAyMn0sIHsiYSI6ICJQZWcgUGFybmV2aWsiLCAidCI6ICJCw6R0dHJlIG51IChUaGUgV2VkZGluZykiLCAieSI6IDIwMjN9LCB7ImEiOiAiVmljdG9yIExla3NlbGwiLCAidCI6ICJOw6R0dGVybmEgaSBHw7Z0ZWJvcmciLCAieSI6IDIwMjN9LCB7ImEiOiAiVmljdG9yIExla3NlbGwiLCAidCI6ICJGw6VuZ2EgbWlnIG7DpHIgamFnIGZhbGxlciIsICJ5IjogMjAyM30sIHsiYSI6ICJCZW5qYW1pbiBJbmdyb3NzbyIsICJ0IjogIktpdGUiLCAieSI6IDIwMjR9LCB7ImEiOiAiQmVuamFtaW4gSW5ncm9zc28iLCAidCI6ICJMb29rIFdobydzIExhdWdoaW5nIE5vdyIsICJ5IjogMjAyNH0sIHsiYSI6ICJNaXJpYW0gQnJ5YW50IiwgInQiOiAiUmVnbmJsw7Z0YSBza29yIiwgInkiOiAyMDI0fSwgeyJhIjogIk1vbGx5IFNhbmTDqW4sIFZpY3RvciBMZWtzZWxsIiwgInQiOiAiTG9zdCBhbmQgRm91bmQiLCAieSI6IDIwMjR9XX19";
 const DECKS = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(DECKS_B64), c => c.charCodeAt(0))));
 
@@ -250,7 +281,7 @@ async function findTrack(song){
     if(bestScore >= 70) break;
   }
   if(!best || bestScore < 50) return null;
-  cache[key] = { uri: best.uri, ms: best.duration_ms, album: best.album && best.album.uri };
+  cache[key] = { uri: best.uri, ms: best.duration_ms, album: best.album && best.album.uri, name: best.name };
   store.set("uris3", cache);
   return cache[key];
 }
@@ -273,6 +304,7 @@ async function playUri(track){
   const ds = (r && r.devices) || [];
   if(!ds.length) throw new Error("NODEVICE");
   const d = ds.find(x => x.is_active) || ds.find(x => x.type === "Smartphone") || ds[0];
+  const dev = encodeURIComponent(d.id);
   if(!d.is_active){
     // Väck telefonen som uppspelningsenhet först
     await api("/me/player", { method:"PUT", body: JSON.stringify({ device_ids:[d.id], play:false }) });
@@ -282,31 +314,75 @@ async function playUri(track){
   const mode = store.get("start", "0");
   if(mode === "30") pos = Math.min(30000, Math.max(0, track.ms - 40000));
   if(mode === "rnd") pos = Math.floor(Math.random() * Math.max(0, track.ms - 45000));
-  // Spotify spelar inte alltid enstaka låtar (uris) på mobilen, så vi startar låten via sitt album
-  const body = track.album
-    ? JSON.stringify({ context_uri: track.album, offset:{ uri: track.uri }, position_ms: pos })
-    : JSON.stringify({ uris:[track.uri], position_ms: pos });
-  await api(`/me/player/play?device_id=${encodeURIComponent(d.id)}`, { method:"PUT", body });
-  // Upprepa låten så att albumet inte rullar vidare och avslöjar nästa spår
-  api(`/me/player/repeat?state=track&device_id=${encodeURIComponent(d.id)}`, { method:"PUT" }).catch(() => {});
-  // Kontrollera att rätt låt faktiskt spelas, annars försök igen
-  let st = null;
-  for(let i = 0; i < 4; i++){
-    await sleep(1000);
-    st = await playerState();
-    const same = st && st.item && st.item.uri === track.uri;
-    if(same && st.is_playing) return;
-    if(i === 1){
-      if(same) await api(`/me/player/play?device_id=${encodeURIComponent(d.id)}`, { method:"PUT" }).catch(() => {});
-      else await api(`/me/player/play?device_id=${encodeURIComponent(d.id)}`, { method:"PUT",
-        body: JSON.stringify({ uris:[track.uri], position_ms: pos }) }).catch(() => {});
-    }
+  const isOurs = st => st && st.item && (st.item.uri === track.uri ||
+    (st.item.linked_from && st.item.linked_from.uri === track.uri) || (track.name && norm(st.item.name) === norm(track.name)));
+  const describe = st => !st ? "tomt läge" :
+    `spelar=${!!st.is_playing}, låt=${st.item ? (isOurs(st) ? "rätt" : "annan") : "ingen"}, enhet=${st.device ? st.device.type : "?"}` +
+    (st.actions && st.actions.disallows ? `, spärrat=${Object.keys(st.actions.disallows).filter(k => st.actions.disallows[k]).join("/") || "-"}` : "");
+  async function waitFor(ms){
+    let st = null;
+    for(let t = 0; t < ms; t += 700){ await sleep(700); st = await playerState(); if(isOurs(st) && st.is_playing) return { ok:true, st }; }
+    return { ok:false, st };
   }
-  const diag = `enhet=${d.type}/${d.is_active ? "aktiv" : "inaktiv"}${d.is_restricted ? "/begränsad" : ""}, ` +
-    `rätt låt=${!!(st && st.item && st.item.uri === track.uri)}, spelar=${!!(st && st.is_playing)}, album=${track.album ? "ja" : "nej"}, ` +
-    `låt-id=${track.uri.split(":").pop()}`;
-  log("Spelade inte: " + diag);
+  const attempts = [];
+  if(track.album) attempts.push(["album", () => api(`/me/player/play?device_id=${dev}`, { method:"PUT",
+    body: JSON.stringify({ context_uri: track.album, offset:{ uri: track.uri }, position_ms: pos }) })]);
+  attempts.push(["låt", () => api(`/me/player/play?device_id=${dev}`, { method:"PUT",
+    body: JSON.stringify({ uris:[track.uri], position_ms: pos }) })]);
+  attempts.push(["kö", async () => {
+    await api(`/me/player/queue?uri=${encodeURIComponent(track.uri)}&device_id=${dev}`, { method:"POST" });
+    await sleep(500);
+    await api(`/me/player/next?device_id=${dev}`, { method:"POST" });
+  }]);
+  const notes = [];
+  for(const [name, run] of attempts){
+    try{ await run(); }catch(e){ notes.push(`${name}: fel ${e.status || ""} ${e.message}`); continue; }
+    const res = await waitFor(2800);
+    if(res.ok){
+      if(notes.length) log(`Spelade via "${name}" efter: ${notes.join(" | ")}`);
+      // Upprepa låten så att Spotify inte rullar vidare och avslöjar nästa spår
+      api(`/me/player/repeat?state=track&device_id=${dev}`, { method:"PUT" }).catch(() => {});
+      return;
+    }
+    // Rätt låt laddad men pausad: försök fortsätta
+    if(isOurs(res.st)){
+      await api(`/me/player/play?device_id=${dev}`, { method:"PUT" }).catch(() => {});
+      const res2 = await waitFor(1500);
+      if(res2.ok) return;
+    }
+    notes.push(`${name}: ${describe(res.st)}`);
+  }
+  log(`v${VERSION} Spelade inte (enhet ${d.type}${d.is_restricted ? ", begränsad" : ""}, id ${track.uri.split(":").pop()}): ${notes.join(" | ")}`);
   throw new Error("NOTPLAYING");
+}
+
+/* ---------- Extra: skärmen släcks inte, turordning, klocka, förladdning ---------- */
+let wakeLock = null;
+async function keepAwake(){
+  try{ if("wakeLock" in navigator && !wakeLock){ wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => { wakeLock = null; }); } }catch(e){}
+}
+document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible" && $("sGame").classList.contains("on")) keepAwake(); });
+let timerId = null;
+function stopTimer(){ clearInterval(timerId); timerId = null; $("timer").classList.add("hidden"); }
+function startTimer(){
+  stopTimer();
+  let left = +store.get("timer", "0");
+  if(!left) return;
+  const el = $("timer"); el.classList.remove("hidden", "low");
+  const draw = () => { el.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`; el.classList.toggle("low", left <= 5); };
+  draw();
+  timerId = setInterval(() => {
+    left--; draw();
+    if(left <= 0){ stopTimer(); el.classList.remove("hidden"); el.textContent = "Tiden är ute!"; el.classList.add("low");
+      try{ navigator.vibrate && navigator.vibrate([200, 100, 200]); }catch(e){} }
+  }, 1000);
+}
+function pickNext(exclude){
+  const left = remaining().filter(i => i !== exclude);
+  if(!left.length){ store.del("next_" + deckId); return; }
+  const idx = left[Math.floor(Math.random() * left.length)];
+  store.set("next_" + deckId, idx);
+  findTrack(deck().songs[idx]).catch(() => {});   // leta upp i förväg så att nästa låt startar snabbare
 }
 
 /* ---------- Spelets logik ---------- */
@@ -332,15 +408,21 @@ async function nextSong(){
   try{
     let left = remaining();
     if(!left.length){ setMsg("Leken är slut! Blanda om under inställningar."); return; }
+    stopTimer();
+    const markPlayed = idx => { const played = store.get("played_" + deckId, []); if(!played.includes(idx)) played.push(idx); store.set("played_" + deckId, played); };
     for(let tries = 0; tries < 4 && left.length; tries++){
-      const idx = left[Math.floor(Math.random() * left.length)];
+      const pre = store.get("next_" + deckId, null);
+      const idx = (tries === 0 && left.includes(pre)) ? pre : left[Math.floor(Math.random() * left.length)];
       const song = deck().songs[idx];
       setMsg("Letar upp låten…");
       const tr = await findTrack(song);
-      const played = store.get("played_" + deckId, []); played.push(idx); store.set("played_" + deckId, played);
-      if(!tr){ store.set("missing", [...new Set([...store.get("missing", []), `${song.a} – ${song.t} (${song.y})`])]); left = remaining(); continue; }
+      if(!tr){ markPlayed(idx); store.set("missing", [...new Set([...store.get("missing", []), `${song.a} – ${song.t} (${song.y})`])]); left = remaining(); continue; }
       current = song; currentTrack = tr;
+      setMsg("Startar låten…");
       await playUri(tr);
+      markPlayed(idx);
+      startTimer();
+      pickNext(idx);
       paused = false; $("btnPause").textContent = "Pausa";
       $("disc").classList.add("spin");
       setMsg("Lyssna och gissa!");
@@ -365,6 +447,7 @@ async function nextSong(){
 }
 function reveal(){
   if(!current) return;
+  stopTimer();
   $("aArtist").textContent = current.a; $("aYear").textContent = current.y; $("aTitle").textContent = current.t;
   $("stage").classList.add("hidden"); $("reveal").classList.remove("hidden");
   $("ctlPlaying").classList.add("hidden"); $("ctlNext").classList.remove("hidden");
@@ -393,6 +476,8 @@ function markWrong(){
 
 /* ---------- Inställningar ---------- */
 function renderSettings(){
+  $("timerSel").value = store.get("timer", "0");
+  $("verInfo").textContent = "Låtlinjen version " + VERSION;
   $("startSel").value = store.get("start", "0");
   const lines = [...store.get("wrong", []).map(x => "Fel låt: " + x), ...store.get("missing", []).map(x => "Hittades inte: " + x), ...store.get("log", []).map(x => "Logg: " + x)];
   $("wrongList").textContent = lines.length ? lines.join("\n") : "Inga markerade låtar.";
@@ -405,9 +490,28 @@ $("btnCopy").onclick = () => { navigator.clipboard && navigator.clipboard.writeT
 $("btnLogin").onclick = login;
 Object.entries(DECKS).forEach(([id, d]) => { const o = document.createElement("option"); o.value = id; o.textContent = `${d.name} (${d.songs.length} låtar)`; $("deckSel").appendChild(o); });
 $("deckSel").value = deckId;
-const deckInfo = () => { deckId = $("deckSel").value; store.set("deck", deckId); $("deckInfo").textContent = `${remaining().length} låtar kvar i leken.`; };
+const deckInfo = () => {
+  deckId = $("deckSel").value; store.set("deck", deckId);
+  const left = remaining().length, total = deck().songs.length;
+  const started = left < total;
+  $("deckInfo").textContent = started ? `Pågående omgång: ${total - left} av ${total} spelade.` : `${total} låtar i leken.`;
+  $("btnBegin").textContent = started ? (left ? "Fortsätt omgången" : "Leken är slut") : "Starta";
+  $("btnBegin").disabled = started && !left;
+  $("btnNewRound").classList.toggle("hidden", !started);
+};
 $("deckSel").onchange = deckInfo;
-$("btnBegin").onclick = () => { deckInfo(); updateCounter(); show("sGame"); };
+$("btnBegin").onclick = () => { deckInfo(); updateCounter(); keepAwake(); show("sGame"); };
+$("btnSkip").onclick = () => { stopTimer(); $("ctlPlaying").classList.add("hidden"); $("ctlNext").classList.remove("hidden"); nextSong(); };
+$("btnEnd2") && ($("btnEnd2").onclick = () => $("btnEnd").onclick());
+$("btnNewRound").onclick = () => { if(confirm("Starta en ny omgång? Alla låtar i leken blir ospelade igen.")){ store.del("played_" + deckId); store.del("next_" + deckId); current = null; deckInfo(); } };
+$("btnEnd").onclick = () => {
+  api("/me/player/pause", { method:"PUT" }).catch(() => {});
+  $("disc").classList.remove("spin"); current = null; currentTrack = null; stopTimer();
+  try{ wakeLock && wakeLock.release(); }catch(e){}
+  $("reveal").classList.add("hidden"); $("stage").classList.remove("hidden");
+  $("ctlPlaying").classList.add("hidden"); $("ctlNext").classList.remove("hidden"); $("btnWrong").classList.add("hidden");
+  setMsg("Tryck på Nästa låt"); deckInfo(); show("sStart");
+};
 $("btnNext").onclick = nextSong;
 $("btnReveal").onclick = reveal;
 $("btnPause").onclick = togglePause;
@@ -415,6 +519,7 @@ $("btnReplay").onclick = replay;
 $("btnWrong").onclick = markWrong;
 $("btnSettings").onclick = () => { renderSettings(); show("sSettings"); };
 $("startSel").onchange = () => store.set("start", $("startSel").value);
+$("timerSel").onchange = () => store.set("timer", $("timerSel").value);
 $("btnReshuffle").onclick = () => { if(confirm("Börja om leken? Alla låtar blir ospelade igen.")){ store.del("played_" + deckId); $("btnReshuffle").textContent = "Leken är omblandad"; } };
 $("btnCopyWrong").onclick = () => { navigator.clipboard && navigator.clipboard.writeText($("wrongList").textContent); $("btnCopyWrong").textContent = "Kopierad"; };
 $("btnLogout").onclick = () => { store.del("token"); show("sSetup"); };
