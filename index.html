@@ -227,6 +227,7 @@ function scoreTrack(t, song){
   const artists = t.artists.map(a => norm(a.name)).join(" ");
   const tname = norm(t.name);
   let s = 0;
+  if(t.is_playable === false) return -100;
   if(artists.includes(want) || want.includes(norm(t.artists[0].name))) s += 50;
   if(tname === title) s += 30; else if(tname.startsWith(title) || title.startsWith(tname)) s += 20; else if(tname.includes(title)) s += 10;
   if(BAD.test(t.name) && !BAD.test(song.t)) s -= 40;
@@ -234,7 +235,7 @@ function scoreTrack(t, song){
   return s;
 }
 async function findTrack(song){
-  const cache = store.get("uris", {});
+  const cache = store.get("uris2", {});
   const key = song.a + "|" + song.t;
   if(cache[key]) return cache[key];
   const first = song.a.split(",")[0].trim();
@@ -250,7 +251,7 @@ async function findTrack(song){
   }
   if(!best || bestScore < 50) return null;
   cache[key] = { uri: best.uri, ms: best.duration_ms };
-  store.set("uris", cache);
+  store.set("uris2", cache);
   return cache[key];
 }
 
@@ -261,14 +262,45 @@ async function pickDevice(){
   if(!ds.length) return null;
   return (ds.find(d => d.is_active) || ds.find(d => d.type === "Smartphone") || ds[0]).id;
 }
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function log(line){
+  const l = store.get("log", []); l.push(new Date().toLocaleTimeString("sv-SE") + " " + line);
+  store.set("log", l.slice(-30));
+}
+async function playerState(){ try{ return await api("/me/player"); }catch(e){ return null; } }
 async function playUri(track){
-  const dev = await pickDevice();
-  if(!dev) throw Object.assign(new Error("NODEVICE"), {});
+  const r = await api("/me/player/devices");
+  const ds = (r && r.devices) || [];
+  if(!ds.length) throw new Error("NODEVICE");
+  const d = ds.find(x => x.is_active) || ds.find(x => x.type === "Smartphone") || ds[0];
+  if(!d.is_active){
+    // Väck telefonen som uppspelningsenhet först
+    await api("/me/player", { method:"PUT", body: JSON.stringify({ device_ids:[d.id], play:false }) });
+    await sleep(900);
+  }
   let pos = 0;
   const mode = store.get("start", "0");
   if(mode === "30") pos = Math.min(30000, Math.max(0, track.ms - 40000));
   if(mode === "rnd") pos = Math.floor(Math.random() * Math.max(0, track.ms - 45000));
-  await api(`/me/player/play?device_id=${encodeURIComponent(dev)}`, { method:"PUT", body: JSON.stringify({ uris:[track.uri], position_ms: pos }) });
+  const body = JSON.stringify({ uris:[track.uri], position_ms: pos });
+  await api(`/me/player/play?device_id=${encodeURIComponent(d.id)}`, { method:"PUT", body });
+  // Kontrollera att rätt låt faktiskt spelas, annars försök igen
+  let st = null;
+  for(let i = 0; i < 4; i++){
+    await sleep(1000);
+    st = await playerState();
+    const same = st && st.item && st.item.uri === track.uri;
+    if(same && st.is_playing) return;
+    if(i === 1){
+      if(same) await api(`/me/player/play?device_id=${encodeURIComponent(d.id)}`, { method:"PUT" }).catch(() => {});
+      else await api(`/me/player/play?device_id=${encodeURIComponent(d.id)}`, { method:"PUT", body }).catch(() => {});
+    }
+  }
+  const diag = `enhet=${d.type}/${d.is_active ? "aktiv" : "inaktiv"}${d.is_restricted ? "/begränsad" : ""}, ` +
+    `rätt låt=${!!(st && st.item && st.item.uri === track.uri)}, spelar=${!!(st && st.is_playing)}, ` +
+    `låt-id=${track.uri.split(":").pop()}`;
+  log("Spelade inte: " + diag);
+  throw new Error("NOTPLAYING");
 }
 
 /* ---------- Spelets logik ---------- */
@@ -314,6 +346,7 @@ async function nextSong(){
   }catch(e){
     $("disc").classList.remove("spin");
     if(e.message === "NODEVICE") setMsg("Ingen Spotify hittades. Öppna Spotify-appen, spela något en sekund och tryck igen.", "err");
+    else if(e.message === "NOTPLAYING") setMsg("Spotify tog emot låten men startade den inte. Öppna Spotify-appen en stund och tryck Nästa låt igen. (Detaljer finns under kugghjulet.)", "err");
     else if(e.message === "NOLOGIN" || e.status === 401) { show("sSetup"); $("setupMsg").textContent = "Logga in igen."; }
     else if(e.status === 403 && /scope/i.test(e.message)){
       const granted = (store.get("token",{}).scope || "inga").replace(/ /g, ", ");
@@ -334,15 +367,20 @@ function reveal(){
 }
 async function togglePause(){
   try{
+    const st = await playerState();
+    if(st) paused = !st.is_playing;
     if(paused){ await api("/me/player/play", { method:"PUT" }); paused = false; $("btnPause").textContent = "Pausa"; $("disc").classList.add("spin"); }
     else { await api("/me/player/pause", { method:"PUT" }); paused = true; $("btnPause").textContent = "Spela"; $("disc").classList.remove("spin"); }
-  }catch(e){ setMsg("Kunde inte styra Spotify: " + e.message, "err"); }
+  }catch(e){
+    if(/restriction/i.test(e.message)){ paused = !paused; $("btnPause").textContent = paused ? "Spela" : "Pausa"; return; }
+    setMsg("Kunde inte styra Spotify: " + e.message, "err");
+  }
 }
 async function replay(){ if(currentTrack){ try{ await playUri(currentTrack); paused=false; $("btnPause").textContent="Pausa"; $("disc").classList.add("spin"); }catch(e){ setMsg("Kunde inte spela om: " + e.message, "err"); } } }
 function markWrong(){
   if(!current) return;
   const key = current.a + "|" + current.t;
-  const cache = store.get("uris", {}); delete cache[key]; store.set("uris", cache);
+  const cache = store.get("uris2", {}); delete cache[key]; store.set("uris2", cache);
   store.set("wrong", [...new Set([...store.get("wrong", []), `${current.a} – ${current.t} (${current.y}) → ${currentTrack ? currentTrack.uri : "?"}`])]);
   $("btnWrong").textContent = "Markerad, tack!";
 }
@@ -350,7 +388,7 @@ function markWrong(){
 /* ---------- Inställningar ---------- */
 function renderSettings(){
   $("startSel").value = store.get("start", "0");
-  const lines = [...store.get("wrong", []).map(x => "Fel låt: " + x), ...store.get("missing", []).map(x => "Hittades inte: " + x)];
+  const lines = [...store.get("wrong", []).map(x => "Fel låt: " + x), ...store.get("missing", []).map(x => "Hittades inte: " + x), ...store.get("log", []).map(x => "Logg: " + x)];
   $("wrongList").textContent = lines.length ? lines.join("\n") : "Inga markerade låtar.";
 }
 
