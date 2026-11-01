@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14111f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Hitster DJ</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2314111f'/%3E%3Cpath d='M26 44V18l22-5v26' fill='none' stroke='%23ffd23f' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='21' cy='44' r='6' fill='%23ffd23f'/%3E%3Ccircle cx='43' cy='39' r='6' fill='%23ffd23f'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#14111f; --panel:#1f1a30; --panel2:#2a2440; --text:#f4f1fb; --muted:#a8a1bd;
+  --accent:#ffd23f; --accent-ink:#1b1606; --pink:#ff5d8f; --ok:#4fd18b; --err:#ff6b6b;
+  --radius:20px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
+main{max-width:480px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;padding:20px 0 28px}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.logo{font-weight:800;letter-spacing:.02em;font-size:20px}
+.logo span{color:var(--accent)}
+.iconbtn{background:none;border:0;color:var(--muted);font-size:24px;padding:6px;cursor:pointer}
+.screen{display:none;flex:1;flex-direction:column}
+.screen.on{display:flex}
+h1{font-size:26px;line-height:1.2;margin:0 0 10px}
+p{margin:0 0 12px;color:var(--muted)}
+p b{color:var(--text)}
+label{display:block;font-size:14px;color:var(--muted);margin:14px 0 6px}
+input,select{width:100%;font:inherit;color:var(--text);background:var(--panel);border:1px solid #3a3352;border-radius:12px;padding:13px 14px}
+.copyrow{display:flex;gap:8px}
+.copyrow input{font-size:13px}
+.btn{display:block;width:100%;border:0;border-radius:16px;padding:17px 18px;font-family:inherit;font-weight:700;font-size:18px;line-height:1.1;cursor:pointer;margin-top:12px;transition:transform .08s}
+.btn:active{transform:scale(.98)}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.secondary{background:var(--panel2);color:var(--text)}
+.btn.ghost{background:none;color:var(--muted);font-weight:600;font-size:15px}
+.btn.small{width:auto;padding:12px 14px;font-size:14px;margin:0}
+.btn:disabled{opacity:.45;cursor:default}
+.card{background:var(--panel);border-radius:var(--radius);padding:18px}
+.stage{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:10px;min-height:340px}
+.disc{width:190px;height:190px;border-radius:50%;background:
+  radial-gradient(circle,var(--bg) 0 13%,var(--accent) 13% 30%,#2b2540 30% 31%,#221d34 31% 45%,#2b2540 45% 46%,#221d34 46% 60%,#2b2540 60% 61%,#1c1829 61%);
+  box-shadow:0 10px 40px rgba(0,0,0,.45)}
+.disc.spin{animation:spin 2.4s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.status{font-size:15px;color:var(--muted);min-height:22px}
+.counter{font-size:13px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.answer{width:100%;max-width:320px;aspect-ratio:1;border-radius:24px;background:linear-gradient(150deg,#ff5d8f,#7b5cff);
+  display:flex;flex-direction:column;justify-content:space-between;align-items:center;padding:26px 20px;text-align:center;
+  box-shadow:0 14px 44px rgba(0,0,0,.5);animation:pop .35s ease-out}
+@keyframes pop{from{transform:scale(.85) rotateY(70deg);opacity:0}to{transform:none;opacity:1}}
+.answer .artist{font-weight:800;font-size:20px;line-height:1.2}
+.answer .year{font-weight:900;font-size:84px;line-height:1;color:#fff;text-shadow:0 4px 18px rgba(0,0,0,.25)}
+.answer .title{font-size:18px;font-style:italic;line-height:1.25}
+.row{display:flex;gap:10px}
+.row .btn{margin-top:10px}
+.note{font-size:13px;color:var(--muted);text-align:center;margin-top:14px}
+.err{color:var(--err)}
+.okc{color:var(--ok)}
+ol.steps{padding-left:20px;color:var(--muted);margin:0 0 6px}
+ol.steps li{margin-bottom:8px}
+ol.steps b{color:var(--text)}
+code{background:var(--panel2);padding:2px 6px;border-radius:6px;font-size:13px;word-break:break-all;color:var(--text)}
+.list{font-size:14px;color:var(--muted);max-height:220px;overflow:auto;background:var(--panel);border-radius:12px;padding:10px 12px;white-space:pre-wrap}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="logo">Hitster <span>DJ</span></div>
+    <button class="iconbtn" id="btnSettings" aria-label="Inställningar">⚙︎</button>
+  </header>
+
+  <!-- 1. Första gången: Client ID -->
+  <section class="screen" id="sSetup">
+    <h1>Koppla till Spotify</h1>
+    <p>Görs en gång. Följ stegen i chatten och klistra sedan in ditt <b>Client ID</b> här.</p>
+    <label>Redirect URI att klistra in hos Spotify</label>
+    <div class="copyrow"><input id="redirectUri" readonly><button class="btn secondary small" id="btnCopy">Kopiera</button></div>
+    <label for="clientId">Client ID</label>
+    <input id="clientId" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="32 tecken från Spotify">
+    <button class="btn primary" id="btnLogin">Logga in med Spotify</button>
+    <p class="status err" id="setupMsg"></p>
+  </section>
+
+  <!-- 2. Välj lek -->
+  <section class="screen" id="sStart">
+    <h1>Redo att spela</h1>
+    <p>Telefonen är DJ. Tryck <b>Nästa låt</b>, gissa, tryck <b>Visa svar</b>. Har man rätt skriver man upp året på en lapp och lägger den i sin tidslinje.</p>
+    <label for="deckSel">Lek</label>
+    <select id="deckSel"></select>
+    <p class="note" id="deckInfo"></p>
+    <button class="btn primary" id="btnBegin">Starta</button>
+    <div class="card" style="margin-top:18px">
+      <p style="margin:0"><b>Innan ni börjar:</b> öppna Spotify-appen och spela valfri låt några sekunder så att telefonen syns som enhet. Stäng gärna av Spotifys notis på låsskärmen så att titeln inte syns.</p>
+    </div>
+  </section>
+
+  <!-- 3. Spelet -->
+  <section class="screen" id="sGame">
+    <div class="counter" id="counter"></div>
+    <div class="stage" id="stage">
+      <div class="disc" id="disc"></div>
+      <div class="status" id="gameMsg">Tryck på Nästa låt</div>
+    </div>
+    <div class="stage hidden" id="reveal">
+      <div class="answer">
+        <div class="artist" id="aArtist"></div>
+        <div class="year" id="aYear"></div>
+        <div class="title" id="aTitle"></div>
+      </div>
+    </div>
+    <div id="ctlPlaying" class="hidden">
+      <button class="btn primary" id="btnReveal">Visa svar</button>
+      <div class="row">
+        <button class="btn secondary" id="btnPause">Pausa</button>
+        <button class="btn secondary" id="btnReplay">Spela om</button>
+      </div>
+    </div>
+    <div id="ctlNext">
+      <button class="btn primary" id="btnNext">Nästa låt</button>
+      <button class="btn ghost hidden" id="btnWrong">Fel låt spelades? Markera</button>
+    </div>
+  </section>
+
+  <!-- 4. Inställningar -->
+  <section class="screen" id="sSettings">
+    <h1>Inställningar</h1>
+    <label for="startSel">Var i låten ska den börja?</label>
+    <select id="startSel">
+      <option value="0">Från början</option>
+      <option value="30">30 sekunder in</option>
+      <option value="rnd">Slumpat ställe</option>
+    </select>
+    <button class="btn secondary" id="btnReshuffle">Blanda om leken (börja om)</button>
+    <label>Markerade låtar (skicka listan till Claude)</label>
+    <div class="list" id="wrongList">Inga markerade låtar.</div>
+    <button class="btn secondary" id="btnCopyWrong">Kopiera listan</button>
+    <button class="btn secondary" id="btnLogout">Logga ut från Spotify</button>
+    <button class="btn ghost" id="btnBack">Tillbaka</button>
+  </section>
+</main>
+
+<script>
+"use strict";
+/* ---------- Lekar (kodade så att listan inte syns av misstag) ---------- */
+const DECKS_B64 = "eyJzdmVuc2thIjogeyJuYW1lIjogIlN2ZW5za2EgaGl0cyIsICJzb25ncyI6IFt7ImEiOiAiQWxpY2UgQmFicyIsICJ0IjogIlN3aW5nIGl0LCBtYWdpc3Rlcm4iLCAieSI6IDE5NDB9LCB7ImEiOiAiTGlsbC1CYWJzIiwgInQiOiAiw4RyIGR1IGvDpHIgaSBtZWogw6RubnUgS2xhcy1Hw7ZyYW4/IiwgInkiOiAxOTU5fSwgeyJhIjogIk93ZSBUaMO2cm5xdmlzdCIsICJ0IjogIlZhcm0ga29ydiBib29naWUiLCAieSI6IDE5NTl9LCB7ImEiOiAiTW9uaWNhIFpldHRlcmx1bmQiLCAidCI6ICJWaXNhIGZyw6VuIFV0YW5teXJhIiwgInkiOiAxOTY0fSwgeyJhIjogIlN2ZW4tSW5ndmFycyIsICJ0IjogIkZyw7ZrZW4gRnLDpGtlbiIsICJ5IjogMTk2NH0sIHsiYSI6ICJUYWdlcyIsICJ0IjogIlNsZWVwIExpdHRsZSBHaXJsIiwgInkiOiAxOTY0fSwgeyJhIjogIkhlcCBTdGFycyIsICJ0IjogIkNhZGlsbGFjIiwgInkiOiAxOTY1fSwgeyJhIjogIkhlcCBTdGFycyIsICJ0IjogIlN1bm55IEdpcmwiLCAieSI6IDE5NjZ9LCB7ImEiOiAiTWF0cyBQYXVsc29uIiwgInQiOiAiVmlzYSB2aWQgdmluZGVucyDDpG5nYXIiLCAieSI6IDE5NjZ9LCB7ImEiOiAiQWduZXRoYSBGw6RsdHNrb2ciLCAidCI6ICJKYWcgdmFyIHPDpSBrw6RyIiwgInkiOiAxOTY3fSwgeyJhIjogIkFubmEtTGVuYSBMw7ZmZ3JlbiIsICJ0IjogIkx5Y2tsaWdhIGdhdGFuIiwgInkiOiAxOTY3fSwgeyJhIjogIkFubmktRnJpZCBMeW5nc3RhZCIsICJ0IjogIkVuIGxlZGlnIGRhZyIsICJ5IjogMTk2N30sIHsiYSI6ICLDlnN0ZW4gV2FybmVyYnJpbmciLCAidCI6ICJTb20gZW4gZHLDtm0iLCAieSI6IDE5Njd9LCB7ImEiOiAiT2xhICYgdGhlIEphbmdsZXJzIiwgInQiOiAiTGV0J3MgRGFuY2UiLCAieSI6IDE5Njl9LCB7ImEiOiAiUHVnaCBSb2dlZmVsZHQiLCAidCI6ICJTbcOlIGzDpHR0YSBtb2xuIiwgInkiOiAxOTY5fSwgeyJhIjogIkhvb2xhIEJhbmRvb2xhIEJhbmQiLCAidCI6ICJWZW0ga2FuIG1hbiBsaXRhIHDDpT8iLCAieSI6IDE5NzJ9LCB7ImEiOiAiVGVkIEfDpHJkZXN0YWQiLCAidCI6ICJKYWcgdmlsbCBoYSBlbiBlZ2VuIG3DpW5lIiwgInkiOiAxOTcyfSwgeyJhIjogIlRlZCBHw6RyZGVzdGFkIiwgInQiOiAiQ29tZSBHaXZlIE1lIExvdmUiLCAieSI6IDE5NzN9LCB7ImEiOiAiVGhvcmxlaWZzIiwgInQiOiAiR3LDpXQgaW5nYSB0w6VyYXIiLCAieSI6IDE5NzR9LCB7ImEiOiAiQUJCQSIsICJ0IjogIlNPUyIsICJ5IjogMTk3NX0sIHsiYSI6ICJBQkJBIiwgInQiOiAiRGFuY2luZyBRdWVlbiIsICJ5IjogMTk3Nn0sIHsiYSI6ICJBQkJBIiwgInQiOiAiTW9uZXksIE1vbmV5LCBNb25leSIsICJ5IjogMTk3Nn0sIHsiYSI6ICJBQkJBIiwgInQiOiAiS25vd2luZyBNZSwgS25vd2luZyBZb3UiLCAieSI6IDE5NzZ9LCB7ImEiOiAiQUJCQSIsICJ0IjogIlRoZSBOYW1lIG9mIHRoZSBHYW1lIiwgInkiOiAxOTc3fSwgeyJhIjogIk1hZ251cyBVZ2dsYSIsICJ0IjogIlZhcm5pbmcgcMOlIHN0YW4iLCAieSI6IDE5Nzd9LCB7ImEiOiAiRmFjdG9yeSIsICJ0IjogIkVmdGVyIHBsdWdnZXQiLCAieSI6IDE5Nzh9LCB7ImEiOiAiTGlsbCBMaW5kZm9ycyIsICJ0IjogIk11c2lrIHNrYSBieWdnYXMgdXRhdiBnbMOkZGplIiwgInkiOiAxOTc4fSwgeyJhIjogIk5hdGlvbmFsdGVhdGVybiIsICJ0IjogIkJhcm4gYXYgdsOlciB0aWQiLCAieSI6IDE5Nzh9LCB7ImEiOiAiQUJCQSIsICJ0IjogIkNoaXF1aXRpdGEiLCAieSI6IDE5Nzl9LCB7ImEiOiAiQUJCQSIsICJ0IjogIlZvdWxlei1Wb3VzIiwgInkiOiAxOTc5fSwgeyJhIjogIlNlY3JldCBTZXJ2aWNlIiwgInQiOiAiT2ggU3VzaWUiLCAieSI6IDE5Nzl9LCB7ImEiOiAiQUJCQSIsICJ0IjogIlRoZSBXaW5uZXIgVGFrZXMgSXQgQWxsIiwgInkiOiAxOTgwfSwgeyJhIjogIkNvcm5lbGlzIFZyZWVzd2lqayIsICJ0IjogIkZlbGljaWEg4oCTIGFkasO2IiwgInkiOiAxOTgwfSwgeyJhIjogIkViYmEgR3LDtm4iLCAidCI6ICJTdGF0ZW4gb2NoIGthcGl0YWxldCIsICJ5IjogMTk4MH0sIHsiYSI6ICJGcmVlc3R5bGUiLCAidCI6ICJWaWxsIGhhIGRlaiIsICJ5IjogMTk4MH0sIHsiYSI6ICJHeWxsZW5lIFRpZGVyIiwgInQiOiAiRmxpY2tvcm5hIHDDpSBUVjIiLCAieSI6IDE5ODB9LCB7ImEiOiAiR3lsbGVuZSBUaWRlciIsICJ0IjogIkp1bmksIGp1bGksIGF1Z3VzdGkiLCAieSI6IDE5ODF9LCB7ImEiOiAiTWlrYWVsIFdpZWhlIiwgInQiOiAiRmxpY2thbiBvY2gga3LDpWthbiIsICJ5IjogMTk4MX0sIHsiYSI6ICJHeWxsZW5lIFRpZGVyIiwgInQiOiAiU29tbWFydGlkZXIiLCAieSI6IDE5ODJ9LCB7ImEiOiAiVWxmIEx1bmRlbGwiLCAidCI6ICLDlnBwbmEgbGFuZHNrYXAiLCAieSI6IDE5ODJ9LCB7ImEiOiAiVG9tYXMgTGVkaW4iLCAidCI6ICJTb21tYXJlbiDDpHIga29ydCIsICJ5IjogMTk4M30sIHsiYSI6ICJNYXJpZSBGcmVkcmlrc3NvbiIsICJ0IjogIsOEbm51IGRvZnRhciBrw6RybGVrIiwgInkiOiAxOTg0fSwgeyJhIjogIkV1cm9wZSIsICJ0IjogIkNoZXJva2VlIiwgInkiOiAxOTg2fSwgeyJhIjogIktpa2tpIERhbmllbHNzb24iLCAidCI6ICJQYXBheWEgQ29jb251dCIsICJ5IjogMTk4Nn0sIHsiYSI6ICJMYXNzZSBIb2xtIiwgInQiOiAiQ2FubmVsb25pIE1hY2Fyb25pIiwgInkiOiAxOTg2fSwgeyJhIjogIlJhdGF0YSIsICJ0IjogIlPDpSBsw6RuZ2UgdmkgaGFyIHZhcmFuZHJhIiwgInkiOiAxOTg3fSwgeyJhIjogIlRob21hcyBEaSBMZXZhIiwgInQiOiAiVmVtIHNrYSBqYWcgdHJvIHDDpT8iLCAieSI6IDE5ODd9LCB7ImEiOiAiRXVyb3BlIiwgInQiOiAiU3VwZXJzdGl0aW91cyIsICJ5IjogMTk4OH0sIHsiYSI6ICJPcnVwIiwgInQiOiAiSmFnIGJsaXIgaGVsbHJlIGphZ2FkIGF2IHZhcmdhciIsICJ5IjogMTk4OH0sIHsiYSI6ICJSb3hldHRlIiwgInQiOiAiRGFuZ2Vyb3VzIiwgInkiOiAxOTg4fSwgeyJhIjogIkV2YSBEYWhsZ3JlbiIsICJ0IjogIsOEbmdlbG4gaSBydW1tZXQiLCAieSI6IDE5ODl9LCB7ImEiOiAiSmFrb2IgSGVsbG1hbiIsICJ0IjogIlZhcmEgdsOkbm5lciIsICJ5IjogMTk4OX0sIHsiYSI6ICJOZW5laCBDaGVycnkiLCAidCI6ICJNYW5jaGlsZCIsICJ5IjogMTk4OX0sIHsiYSI6ICJOZW5laCBDaGVycnkiLCAidCI6ICJLaXNzZXMgb24gdGhlIFdpbmQiLCAieSI6IDE5ODl9LCB7ImEiOiAiQmrDtnJuIEFmemVsaXVzIiwgInQiOiAiVHVzZW4gYml0YXIiLCAieSI6IDE5OTB9LCB7ImEiOiAiRHIuIEFsYmFuIiwgInQiOiAiTm8gQ29rZSIsICJ5IjogMTk5MH0sIHsiYSI6ICJEci4gQWxiYW4iLCAidCI6ICJIZWxsbyBBZnJpa2EiLCAieSI6IDE5OTB9LCB7ImEiOiAiQXJteSBvZiBMb3ZlcnMiLCAidCI6ICJPYnNlc3Npb24iLCAieSI6IDE5OTF9LCB7ImEiOiAiUm94ZXR0ZSIsICJ0IjogIkpveXJpZGUiLCAieSI6IDE5OTF9LCB7ImEiOiAiUm94ZXR0ZSIsICJ0IjogIkZhZGluZyBMaWtlIGEgRmxvd2VyIiwgInkiOiAxOTkxfSwgeyJhIjogIlJveGV0dGUiLCAidCI6ICJTcGVuZGluZyBNeSBUaW1lIiwgInkiOiAxOTkxfSwgeyJhIjogIlJveGV0dGUiLCAidCI6ICJUaGUgQmlnIEwuIiwgInkiOiAxOTkxfSwgeyJhIjogIkFjZSBvZiBCYXNlIiwgInQiOiAiV2hlZWwgb2YgRm9ydHVuZSIsICJ5IjogMTk5Mn0sIHsiYSI6ICJBY2Ugb2YgQmFzZSIsICJ0IjogIkhhcHB5IE5hdGlvbiIsICJ5IjogMTk5Mn0sIHsiYSI6ICJBcm15IG9mIExvdmVycyIsICJ0IjogIklzcmFlbGlzbSIsICJ5IjogMTk5M30sIHsiYSI6ICJQYW5kb3JhIiwgInQiOiAiVHJ1c3QgTWUiLCAieSI6IDE5OTN9LCB7ImEiOiAiRHIuIEFsYmFuIiwgInQiOiAiTG9vayBXaG8ncyBUYWxraW5nIiwgInkiOiAxOTk0fSwgeyJhIjogIk5lbmVoIENoZXJyeSwgWW91c3NvdSBOJ0RvdXIiLCAidCI6ICI3IFNlY29uZHMiLCAieSI6IDE5OTR9LCB7ImEiOiAiTm9yZG1hbiIsICJ0IjogIlZhbmRyYXJlbiIsICJ5IjogMTk5NH0sIHsiYSI6ICJSb3hldHRlIiwgInQiOiAiU2xlZXBpbmcgaW4gTXkgQ2FyIiwgInkiOiAxOTk0fSwgeyJhIjogIlRoZSBDYXJkaWdhbnMiLCAidCI6ICJSaXNlICYgU2hpbmUiLCAieSI6IDE5OTR9LCB7ImEiOiAiVGhlIFdhbm5hZGllcyIsICJ0IjogIllvdSBhbmQgTWUgU29uZyIsICJ5IjogMTk5NH0sIHsiYSI6ICJVbm8gU3Zlbm5pbmdzc29uIiwgInQiOiAiVW5kZXIgeXRhbiIsICJ5IjogMTk5NH0sIHsiYSI6ICJSZWRuZXgiLCAidCI6ICJXaXNoIFlvdSBXZXJlIEhlcmUiLCAieSI6IDE5OTV9LCB7ImEiOiAiR3lsbGVuZSBUaWRlciIsICJ0IjogIkfDpSAmIGZpc2thISIsICJ5IjogMTk5Nn0sIHsiYSI6ICJrZW50IiwgInQiOiAiS3LDpG0gKHPDpSBuw6RyYSBmw6VyIGluZ2VuIGfDpSkiLCAieSI6IDE5OTZ9LCB7ImEiOiAia2VudCIsICJ0IjogIjc0NyIsICJ5IjogMTk5Nn0sIHsiYSI6ICJQZXIgR2Vzc2xlIiwgInQiOiAiSMOkciBrb21tZXIgYWxsYSBrw6Ruc2xvcm5hIChww6UgZW4gb2NoIHNhbW1hIGfDpW5nKSIsICJ5IjogMTk5N30sIHsiYSI6ICJSb2J5biIsICJ0IjogIlNob3cgTWUgTG92ZSIsICJ5IjogMTk5N30sIHsiYSI6ICJrZW50IiwgInQiOiAiT20gZHUgdmFyIGjDpHIiLCAieSI6IDE5OTd9LCB7ImEiOiAiQWNlIG9mIEJhc2UiLCAidCI6ICJDcnVlbCBTdW1tZXIiLCAieSI6IDE5OTh9LCB7ImEiOiAiRS1UeXBlIiwgInQiOiAiQW5nZWxzIENyeWluZyIsICJ5IjogMTk5OH0sIHsiYSI6ICJBbmRyZWFzIEpvaG5zb24iLCAidCI6ICJHbG9yaW91cyIsICJ5IjogMTk5OX0sIHsiYSI6ICJSb3hldHRlIiwgInQiOiAiV2lzaCBJIENvdWxkIEZseSIsICJ5IjogMTk5OX0sIHsiYSI6ICJBbGNhemFyIiwgInQiOiAiQ3J5aW5nIGF0IHRoZSBEaXNjb3RlcXVlIiwgInkiOiAyMDAwfSwgeyJhIjogIkjDpWthbiBIZWxsc3Ryw7ZtIiwgInQiOiAiS8Okbm4gaW5nZW4gc29yZyBmw7ZyIG1pZyBHw7Z0ZWJvcmciLCAieSI6IDIwMDB9LCB7ImEiOiAiVGhlIEFyayIsICJ0IjogIkl0IFRha2VzIGEgRm9vbCB0byBSZW1haW4gU2FuZSIsICJ5IjogMjAwMH0sIHsiYSI6ICJUaGUgSGl2ZXMiLCAidCI6ICJNYWluIE9mZmVuZGVyIiwgInkiOiAyMDAwfSwgeyJhIjogIk1lbG9keSBDbHViIiwgInQiOiAiUGFsYWNlIFN0YXRpb24iLCAieSI6IDIwMDJ9LCB7ImEiOiAiQWxjYXphciIsICJ0IjogIlRoaXMgSXMgdGhlIFdvcmxkIFdlIExpdmUgSW4iLCAieSI6IDIwMDR9LCB7ImEiOiAiQW5hIEpvaG5zc29uIiwgInQiOiAiV2UgQXJlIiwgInkiOiAyMDA0fSwgeyJhIjogIkRhbmllbCBMaW5kc3Ryw7ZtIiwgInQiOiAiQ29taW5nIFRydWUiLCAieSI6IDIwMDR9LCB7ImEiOiAiU2FoYXJhIEhvdG5pZ2h0cyIsICJ0IjogIkFscmlnaHQgQWxyaWdodCAoSGVyZSdzIE15IEZpc3QgV2hlcmUncyB0aGUgRmlnaHQ/KSIsICJ5IjogMjAwNH0sIHsiYSI6ICJUaGUgQXJrIiwgInQiOiAiT25lIG9mIFVzIElzIEdvbm5hIERpZSBZb3VuZyIsICJ5IjogMjAwNH0sIHsiYSI6ICJUaGUgSGl2ZXMiLCAidCI6ICJXYWxrIElkaW90IFdhbGsiLCAieSI6IDIwMDR9LCB7ImEiOiAiQW15IERpYW1vbmQiLCAidCI6ICJXaGF0J3MgaW4gSXQgZm9yIE1lIiwgInkiOiAyMDA1fSwgeyJhIjogIkRhcmluIiwgInQiOiAiTW9uZXkgZm9yIE5vdGhpbmciLCAieSI6IDIwMDV9LCB7ImEiOiAiTGFsZWgiLCAidCI6ICJMaXZlIFRvbW9ycm93IiwgInkiOiAyMDA1fSwgeyJhIjogIk1vbmV5YnJvdGhlciIsICJ0IjogIlRoZXkncmUgQnVpbGRpbmcgV2FsbHMgQXJvdW5kIFVzIiwgInkiOiAyMDA1fSwgeyJhIjogIlJvYnluIiwgInQiOiAiQmUgTWluZSEiLCAieSI6IDIwMDV9LCB7ImEiOiAiU2FiYXRvbiIsICJ0IjogIlByaW1vIFZpY3RvcmlhIiwgInkiOiAyMDA1fSwgeyJhIjogIlRoZSBDYXJkaWdhbnMiLCAidCI6ICJJIE5lZWQgU29tZSBGaW5lIFdpbmUgYW5kIFlvdSwgWW91IE5lZWQgdG8gQmUgTmljZXIiLCAieSI6IDIwMDV9LCB7ImEiOiAiRmFtaWxqZW4iLCAidCI6ICJEZXQgc251cnJhciBpIG1pbiBza2FsbGUiLCAieSI6IDIwMDZ9LCB7ImEiOiAiTGluZGEgU3VuZGJsYWQiLCAidCI6ICJPaCBGYXRoZXIiLCAieSI6IDIwMDZ9LCB7ImEiOiAiTWFuZG8gRGlhbyIsICJ0IjogIkRvd24gaW4gdGhlIFBhc3QiLCAieSI6IDIwMDZ9LCB7ImEiOiAiQmFzc2h1bnRlciIsICJ0IjogIk5vdyBZb3UncmUgR29uZSIsICJ5IjogMjAwN30sIHsiYSI6ICJMYXJzIFdpbm5lcmLDpGNrLCBNaXNzIExpIiwgInQiOiAiT20gZHUgbMOkbW5hZGUgbWlnIG51IiwgInkiOiAyMDA3fSwgeyJhIjogIk1pc3MgTGkiLCAidCI6ICJCb3VyZ2VvaXMgU2hhbmdyaS1MYSIsICJ5IjogMjAwN30sIHsiYSI6ICJBZ25lcyIsICJ0IjogIlJlbGVhc2UgTWUiLCAieSI6IDIwMDh9LCB7ImEiOiAiQmFzc2h1bnRlciIsICJ0IjogIkFsbCBJIEV2ZXIgV2FudGVkIiwgInkiOiAyMDA4fSwgeyJhIjogIkVyaWMgUHJ5ZHoiLCAidCI6ICJQamFub28iLCAieSI6IDIwMDh9LCB7ImEiOiAiRXJpayBIYXNzbGUiLCAidCI6ICJIdXJ0ZnVsIiwgInkiOiAyMDA5fSwgeyJhIjogIk1vaG9tYmkiLCAidCI6ICJCdW1weSBSaWRlIiwgInkiOiAyMDEwfSwgeyJhIjogIk9za2FyIExpbm5yb3MiLCAidCI6ICJBY2sgU3VuZHN2YWxsIiwgInkiOiAyMDEwfSwgeyJhIjogIlN3ZWRpc2ggSG91c2UgTWFmaWEiLCAidCI6ICJPbmUgKFlvdXIgTmFtZSkiLCAieSI6IDIwMTB9LCB7ImEiOiAiU3dlZGlzaCBIb3VzZSBNYWZpYSIsICJ0IjogIk1pYW1pIDIgSWJpemEiLCAieSI6IDIwMTB9LCB7ImEiOiAiQXZpY2lpIiwgInQiOiAiRmFkZSBpbnRvIERhcmtuZXNzIiwgInkiOiAyMDExfSwgeyJhIjogIkxvcmVlbiIsICJ0IjogIk15IEhlYXJ0IElzIFJlZnVzaW5nIE1lIiwgInkiOiAyMDExfSwgeyJhIjogIlJvYnluIiwgInQiOiAiQ2FsbCBZb3VyIEdpcmxmcmllbmQiLCAieSI6IDIwMTF9LCB7ImEiOiAiVmVyb25pY2EgTWFnZ2lvIiwgInQiOiAiU2F0YW4gaSBnYXRhbiIsICJ5IjogMjAxMX0sIHsiYSI6ICJGaXJzdCBBaWQgS2l0IiwgInQiOiAiRW1teWxvdSIsICJ5IjogMjAxMn0sIHsiYSI6ICJMYWxlaCIsICJ0IjogIlNvbWUgRGllIFlvdW5nIiwgInkiOiAyMDEyfSwgeyJhIjogIk1pcmlhbSBCcnlhbnQiLCAidCI6ICJGaW5kZXJzLCBLZWVwZXJzIiwgInkiOiAyMDEyfSwgeyJhIjogIk90dG8gS25vd3MiLCAidCI6ICJNaWxsaW9uIFZvaWNlcyIsICJ5IjogMjAxMn0sIHsiYSI6ICJQZXRyYSBNYXJrbHVuZCIsICJ0IjogIkjDpG5kZXJuYSBtb3QgaGltbGVuIiwgInkiOiAyMDEyfSwgeyJhIjogIlN0aWZ0ZWxzZW4iLCAidCI6ICJWYXJ0IGphZyDDpG4gZ8OlciIsICJ5IjogMjAxMn0sIHsiYSI6ICJJY29uYSBQb3AiLCAidCI6ICJBbGwgTmlnaHQiLCAieSI6IDIwMTN9LCB7ImEiOiAiTWFwZWkiLCAidCI6ICJEb24ndCBXYWl0IiwgInkiOiAyMDEzfSwgeyJhIjogIlZlcm9uaWNhIE1hZ2dpbyIsICJ0IjogIlNlcmdlbHMgdG9yZyIsICJ5IjogMjAxM30sIHsiYSI6ICJaYXJhIExhcnNzb24iLCAidCI6ICJVbmNvdmVyIiwgInkiOiAyMDEzfSwgeyJhIjogIkF2aWNpaSIsICJ0IjogIlRoZSBOaWdodHMiLCAieSI6IDIwMTR9LCB7ImEiOiAiVG92ZSBMbyIsICJ0IjogIlRhbGtpbmcgQm9keSIsICJ5IjogMjAxNH0sIHsiYSI6ICJEYXJpbiIsICJ0IjogIkVuIGFwYSBzb20gbGlrbmFyIGRpZyIsICJ5IjogMjAxNX0sIHsiYSI6ICJTZWluYWJvIFNleSIsICJ0IjogIlBpc3RvbHMgYXQgRGF3biIsICJ5IjogMjAxNX0sIHsiYSI6ICJHaG9zdCIsICJ0IjogIlNxdWFyZSBIYW1tZXIiLCAieSI6IDIwMTZ9LCB7ImEiOiAiVG92ZSBMbyIsICJ0IjogIkNvb2wgR2lybCIsICJ5IjogMjAxNn0sIHsiYSI6ICJBeHdlbGwgL1xcIEluZ3Jvc3NvIiwgInQiOiAiTW9yZSBUaGFuIFlvdSBLbm93IiwgInkiOiAyMDE3fSwgeyJhIjogIlRvdmUgU3R5cmtlIiwgInQiOiAiU2F5IE15IE5hbWUiLCAieSI6IDIwMTd9LCB7ImEiOiAiWmFyYSBMYXJzc29uIiwgInQiOiAiUnVpbiBNeSBMaWZlIiwgInkiOiAyMDE4fSwgeyJhIjogIkFCQkEiLCAidCI6ICJEb24ndCBTaHV0IE1lIERvd24iLCAieSI6IDIwMjF9LCB7ImEiOiAiQUJCQSIsICJ0IjogIkkgU3RpbGwgSGF2ZSBGYWl0aCBpbiBZb3UiLCAieSI6IDIwMjF9LCB7ImEiOiAiTWlyaWFtIEJyeWFudCIsICJ0IjogIk1pdHQgaGrDpHJ0YSBibMO2ZGVyIiwgInkiOiAyMDIxfSwgeyJhIjogIk1vbGx5IEhhbW1hciIsICJ0IjogIkluZ2VuIGFubmFuIHLDtnIgbWlnIHNvbSBkdSIsICJ5IjogMjAyMn0sIHsiYSI6ICJQZWcgUGFybmV2aWsiLCAidCI6ICJCw6R0dHJlIG51IChUaGUgV2VkZGluZykiLCAieSI6IDIwMjN9LCB7ImEiOiAiVmljdG9yIExla3NlbGwiLCAidCI6ICJOw6R0dGVybmEgaSBHw7Z0ZWJvcmciLCAieSI6IDIwMjN9LCB7ImEiOiAiVmljdG9yIExla3NlbGwiLCAidCI6ICJGw6VuZ2EgbWlnIG7DpHIgamFnIGZhbGxlciIsICJ5IjogMjAyM30sIHsiYSI6ICJCZW5qYW1pbiBJbmdyb3NzbyIsICJ0IjogIktpdGUiLCAieSI6IDIwMjR9LCB7ImEiOiAiQmVuamFtaW4gSW5ncm9zc28iLCAidCI6ICJMb29rIFdobydzIExhdWdoaW5nIE5vdyIsICJ5IjogMjAyNH0sIHsiYSI6ICJNaXJpYW0gQnJ5YW50IiwgInQiOiAiUmVnbmJsw7Z0YSBza29yIiwgInkiOiAyMDI0fSwgeyJhIjogIk1vbGx5IFNhbmTDqW4sIFZpY3RvciBMZWtzZWxsIiwgInQiOiAiTG9zdCBhbmQgRm91bmQiLCAieSI6IDIwMjR9XX19";
+const DECKS = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(DECKS_B64), c => c.charCodeAt(0))));
+
+/* ---------- Lagring ---------- */
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem("hdj_"+k); return v===null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem("hdj_"+k, JSON.stringify(v)); }catch(e){} },
+  del(k){ try{ localStorage.removeItem("hdj_"+k); }catch(e){} }
+};
+const $ = id => document.getElementById(id);
+const REDIRECT = location.origin + location.pathname;
+const SCOPES = "user-modify-playback-state user-read-playback-state";
+
+function show(id){
+  document.querySelectorAll(".screen").forEach(s => s.classList.toggle("on", s.id === id));
+}
+
+/* ---------- Spotify-inloggning (PKCE, ingen hemlig nyckel) ---------- */
+function rnd(n){ const a = new Uint8Array(n); crypto.getRandomValues(a); return Array.from(a, b => ("0"+b.toString(16)).slice(-2)).join(""); }
+async function sha256b64url(s){
+  const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return btoa(String.fromCharCode(...new Uint8Array(h))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+async function login(){
+  const cid = $("clientId").value.trim();
+  if(!/^[0-9a-f]{32}$/i.test(cid)){ $("setupMsg").textContent = "Client ID ska vara 32 tecken (0–9, a–f)."; return; }
+  store.set("clientId", cid);
+  const verifier = rnd(48), state = rnd(8);
+  store.set("verifier", verifier); store.set("state", state);
+  const p = new URLSearchParams({ client_id: cid, response_type: "code", redirect_uri: REDIRECT,
+    code_challenge_method: "S256", code_challenge: await sha256b64url(verifier), scope: SCOPES, state });
+  location.href = "https://accounts.spotify.com/authorize?" + p;
+}
+async function tokenRequest(params){
+  const r = await fetch("https://accounts.spotify.com/api/token", { method:"POST",
+    headers:{ "Content-Type":"application/x-www-form-urlencoded" }, body: new URLSearchParams(params) });
+  const j = await r.json().catch(() => ({}));
+  if(!r.ok) throw new Error(j.error_description || j.error || ("HTTP " + r.status));
+  store.set("token", { access: j.access_token, refresh: j.refresh_token || (store.get("token",{}).refresh), exp: Date.now() + (j.expires_in - 60) * 1000 });
+}
+async function handleRedirect(){
+  const q = new URLSearchParams(location.search);
+  if(!q.has("code") && !q.has("error")) return false;
+  history.replaceState(null, "", REDIRECT);
+  if(q.get("error")){ show("sSetup"); $("setupMsg").textContent = "Spotify sa nej: " + q.get("error"); return true; }
+  if(q.get("state") !== store.get("state")){ show("sSetup"); $("setupMsg").textContent = "Inloggningen kunde inte verifieras. Försök igen."; return true; }
+  try{
+    await tokenRequest({ grant_type:"authorization_code", code:q.get("code"), redirect_uri:REDIRECT,
+      client_id: store.get("clientId"), code_verifier: store.get("verifier") });
+    store.del("verifier"); store.del("state");
+    return false;
+  }catch(e){ show("sSetup"); $("setupMsg").textContent = "Inloggningen misslyckades: " + e.message; return true; }
+}
+async function accessToken(){
+  const t = store.get("token", null);
+  if(!t) throw new Error("NOLOGIN");
+  if(Date.now() < t.exp) return t.access;
+  await tokenRequest({ grant_type:"refresh_token", refresh_token:t.refresh, client_id:store.get("clientId") });
+  return store.get("token").access;
+}
+async function api(path, opts = {}){
+  const tok = await accessToken();
+  const r = await fetch("https://api.spotify.com/v1" + path, { ...opts,
+    headers:{ Authorization:"Bearer " + tok, "Content-Type":"application/json", ...(opts.headers||{}) } });
+  if(r.status === 204) return null;
+  const j = await r.json().catch(() => null);
+  if(!r.ok){ const e = new Error((j && j.error && j.error.message) || ("HTTP " + r.status)); e.status = r.status; e.reason = j && j.error && j.error.reason; throw e; }
+  return j;
+}
+
+/* ---------- Hitta rätt låt på Spotify ---------- */
+const norm = s => s.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g,"").replace(/&/g," and ").replace(/[^a-z0-9]+/g," ").trim();
+const BAD = /\b(live|karaoke|instrumental|remix|acoustic|akustisk|cover|tribute|demo|re-?recorded|sped up|slowed)\b/i;
+function scoreTrack(t, song){
+  const want = norm(song.a.split(",")[0]), title = norm(song.t);
+  const artists = t.artists.map(a => norm(a.name)).join(" ");
+  const tname = norm(t.name);
+  let s = 0;
+  if(artists.includes(want) || want.includes(norm(t.artists[0].name))) s += 50;
+  if(tname === title) s += 30; else if(tname.startsWith(title) || title.startsWith(tname)) s += 20; else if(tname.includes(title)) s += 10;
+  if(BAD.test(t.name) && !BAD.test(song.t)) s -= 40;
+  if(BAD.test(t.album.name) && !BAD.test(song.t)) s -= 15;
+  return s;
+}
+async function findTrack(song){
+  const cache = store.get("uris", {});
+  const key = song.a + "|" + song.t;
+  if(cache[key]) return cache[key];
+  const first = song.a.split(",")[0].trim();
+  const queries = [ `track:"${song.t}" artist:"${first}"`, `${first} ${song.t}` ];
+  let best = null, bestScore = 0;
+  for(const q of queries){
+    const r = await api(`/search?type=track&limit=10&market=from_token&q=${encodeURIComponent(q)}`);
+    for(const t of (r && r.tracks && r.tracks.items) || []){
+      const sc = scoreTrack(t, song);
+      if(sc > bestScore){ best = t; bestScore = sc; }
+    }
+    if(bestScore >= 70) break;
+  }
+  if(!best || bestScore < 50) return null;
+  cache[key] = { uri: best.uri, ms: best.duration_ms };
+  store.set("uris", cache);
+  return cache[key];
+}
+
+/* ---------- Uppspelning i Spotify-appen ---------- */
+async function pickDevice(){
+  const r = await api("/me/player/devices");
+  const ds = (r && r.devices) || [];
+  if(!ds.length) return null;
+  return (ds.find(d => d.is_active) || ds.find(d => d.type === "Smartphone") || ds[0]).id;
+}
+async function playUri(track){
+  const dev = await pickDevice();
+  if(!dev) throw Object.assign(new Error("NODEVICE"), {});
+  let pos = 0;
+  const mode = store.get("start", "0");
+  if(mode === "30") pos = Math.min(30000, Math.max(0, track.ms - 40000));
+  if(mode === "rnd") pos = Math.floor(Math.random() * Math.max(0, track.ms - 45000));
+  await api(`/me/player/play?device_id=${encodeURIComponent(dev)}`, { method:"PUT", body: JSON.stringify({ uris:[track.uri], position_ms: pos }) });
+}
+
+/* ---------- Spelets logik ---------- */
+let deckId = store.get("deck", Object.keys(DECKS)[0]);
+let current = null, currentTrack = null, paused = false, busy = false;
+
+function deck(){ return DECKS[deckId] || DECKS[Object.keys(DECKS)[0]]; }
+function remaining(){
+  const played = new Set(store.get("played_" + deckId, []));
+  return deck().songs.map((s,i) => i).filter(i => !played.has(i));
+}
+function updateCounter(){
+  const total = deck().songs.length, left = remaining().length;
+  $("counter").textContent = `${deck().name} · ${total - left} av ${total} spelade`;
+}
+function setMsg(t, cls){ const m = $("gameMsg"); m.textContent = t; m.className = "status " + (cls || ""); }
+
+async function nextSong(){
+  if(busy) return; busy = true;
+  $("btnNext").disabled = true;
+  $("reveal").classList.add("hidden"); $("stage").classList.remove("hidden");
+  $("btnWrong").classList.add("hidden");
+  try{
+    let left = remaining();
+    if(!left.length){ setMsg("Leken är slut! Blanda om under inställningar."); return; }
+    for(let tries = 0; tries < 4 && left.length; tries++){
+      const idx = left[Math.floor(Math.random() * left.length)];
+      const song = deck().songs[idx];
+      setMsg("Letar upp låten…");
+      const tr = await findTrack(song);
+      const played = store.get("played_" + deckId, []); played.push(idx); store.set("played_" + deckId, played);
+      if(!tr){ store.set("missing", [...new Set([...store.get("missing", []), `${song.a} – ${song.t} (${song.y})`])]); left = remaining(); continue; }
+      current = song; currentTrack = tr;
+      await playUri(tr);
+      paused = false; $("btnPause").textContent = "Pausa";
+      $("disc").classList.add("spin");
+      setMsg("Lyssna och gissa!");
+      $("ctlNext").classList.add("hidden"); $("ctlPlaying").classList.remove("hidden");
+      updateCounter();
+      return;
+    }
+    setMsg("Hittade inte låtarna på Spotify. Försök igen.", "err");
+  }catch(e){
+    $("disc").classList.remove("spin");
+    if(e.message === "NODEVICE") setMsg("Ingen Spotify hittades. Öppna Spotify-appen, spela något en sekund och tryck igen.", "err");
+    else if(e.message === "NOLOGIN" || e.status === 401) { show("sSetup"); $("setupMsg").textContent = "Logga in igen."; }
+    else if(e.status === 403) setMsg("Spotify nekade uppspelning (kräver Premium). " + e.message, "err");
+    else setMsg("Något gick fel: " + e.message, "err");
+  }finally{ busy = false; $("btnNext").disabled = false; }
+}
+function reveal(){
+  if(!current) return;
+  $("aArtist").textContent = current.a; $("aYear").textContent = current.y; $("aTitle").textContent = current.t;
+  $("stage").classList.add("hidden"); $("reveal").classList.remove("hidden");
+  $("ctlPlaying").classList.add("hidden"); $("ctlNext").classList.remove("hidden");
+  $("btnWrong").classList.remove("hidden"); $("btnWrong").textContent = "Fel låt spelades? Markera";
+  $("disc").classList.remove("spin");
+}
+async function togglePause(){
+  try{
+    if(paused){ await api("/me/player/play", { method:"PUT" }); paused = false; $("btnPause").textContent = "Pausa"; $("disc").classList.add("spin"); }
+    else { await api("/me/player/pause", { method:"PUT" }); paused = true; $("btnPause").textContent = "Spela"; $("disc").classList.remove("spin"); }
+  }catch(e){ setMsg("Kunde inte styra Spotify: " + e.message, "err"); }
+}
+async function replay(){ if(currentTrack){ try{ await playUri(currentTrack); paused=false; $("btnPause").textContent="Pausa"; $("disc").classList.add("spin"); }catch(e){ setMsg("Kunde inte spela om: " + e.message, "err"); } } }
+function markWrong(){
+  if(!current) return;
+  const key = current.a + "|" + current.t;
+  const cache = store.get("uris", {}); delete cache[key]; store.set("uris", cache);
+  store.set("wrong", [...new Set([...store.get("wrong", []), `${current.a} – ${current.t} (${current.y}) → ${currentTrack ? currentTrack.uri : "?"}`])]);
+  $("btnWrong").textContent = "Markerad, tack!";
+}
+
+/* ---------- Inställningar ---------- */
+function renderSettings(){
+  $("startSel").value = store.get("start", "0");
+  const lines = [...store.get("wrong", []).map(x => "Fel låt: " + x), ...store.get("missing", []).map(x => "Hittades inte: " + x)];
+  $("wrongList").textContent = lines.length ? lines.join("\n") : "Inga markerade låtar.";
+}
+
+/* ---------- Koppla knappar ---------- */
+$("redirectUri").value = REDIRECT;
+$("clientId").value = store.get("clientId", "");
+$("btnCopy").onclick = () => { navigator.clipboard && navigator.clipboard.writeText(REDIRECT); $("btnCopy").textContent = "Kopierad"; };
+$("btnLogin").onclick = login;
+Object.entries(DECKS).forEach(([id, d]) => { const o = document.createElement("option"); o.value = id; o.textContent = `${d.name} (${d.songs.length} låtar)`; $("deckSel").appendChild(o); });
+$("deckSel").value = deckId;
+const deckInfo = () => { deckId = $("deckSel").value; store.set("deck", deckId); $("deckInfo").textContent = `${remaining().length} låtar kvar i leken.`; };
+$("deckSel").onchange = deckInfo;
+$("btnBegin").onclick = () => { deckInfo(); updateCounter(); show("sGame"); };
+$("btnNext").onclick = nextSong;
+$("btnReveal").onclick = reveal;
+$("btnPause").onclick = togglePause;
+$("btnReplay").onclick = replay;
+$("btnWrong").onclick = markWrong;
+$("btnSettings").onclick = () => { renderSettings(); show("sSettings"); };
+$("startSel").onchange = () => store.set("start", $("startSel").value);
+$("btnReshuffle").onclick = () => { if(confirm("Börja om leken? Alla låtar blir ospelade igen.")){ store.del("played_" + deckId); $("btnReshuffle").textContent = "Leken är omblandad"; } };
+$("btnCopyWrong").onclick = () => { navigator.clipboard && navigator.clipboard.writeText($("wrongList").textContent); $("btnCopyWrong").textContent = "Kopierad"; };
+$("btnLogout").onclick = () => { store.del("token"); show("sSetup"); };
+$("btnBack").onclick = () => { if(store.get("token", null)){ deckInfo(); show(current ? "sGame" : "sStart"); } else show("sSetup"); };
+
+(async () => {
+  const stop = await handleRedirect();
+  if(stop) return;
+  if(store.get("token", null)){ deckInfo(); show("sStart"); } else show("sSetup");
+})();
+</script>
+</body>
+</html>
