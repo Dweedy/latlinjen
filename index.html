@@ -241,7 +241,7 @@ async function findTrack(song){
   const queries = [ `track:"${song.t}" artist:"${first}"`, `${first} ${song.t}` ];
   let best = null, bestScore = 0;
   for(const q of queries){
-    const r = await api(`/search?type=track&limit=10&market=from_token&q=${encodeURIComponent(q)}`);
+    const r = await api(`/search?type=track&limit=10&market=SE&q=${encodeURIComponent(q)}`);
     for(const t of (r && r.tracks && r.tracks.items) || []){
       const sc = scoreTrack(t, song);
       if(sc > bestScore){ best = t; bestScore = sc; }
