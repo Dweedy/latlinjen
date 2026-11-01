@@ -235,7 +235,7 @@ function scoreTrack(t, song){
   return s;
 }
 async function findTrack(song){
-  const cache = store.get("uris2", {});
+  const cache = store.get("uris3", {});
   const key = song.a + "|" + song.t;
   if(cache[key]) return cache[key];
   const first = song.a.split(",")[0].trim();
@@ -250,8 +250,8 @@ async function findTrack(song){
     if(bestScore >= 70) break;
   }
   if(!best || bestScore < 50) return null;
-  cache[key] = { uri: best.uri, ms: best.duration_ms };
-  store.set("uris2", cache);
+  cache[key] = { uri: best.uri, ms: best.duration_ms, album: best.album && best.album.uri };
+  store.set("uris3", cache);
   return cache[key];
 }
 
@@ -282,8 +282,13 @@ async function playUri(track){
   const mode = store.get("start", "0");
   if(mode === "30") pos = Math.min(30000, Math.max(0, track.ms - 40000));
   if(mode === "rnd") pos = Math.floor(Math.random() * Math.max(0, track.ms - 45000));
-  const body = JSON.stringify({ uris:[track.uri], position_ms: pos });
+  // Spotify spelar inte alltid enstaka låtar (uris) på mobilen, så vi startar låten via sitt album
+  const body = track.album
+    ? JSON.stringify({ context_uri: track.album, offset:{ uri: track.uri }, position_ms: pos })
+    : JSON.stringify({ uris:[track.uri], position_ms: pos });
   await api(`/me/player/play?device_id=${encodeURIComponent(d.id)}`, { method:"PUT", body });
+  // Upprepa låten så att albumet inte rullar vidare och avslöjar nästa spår
+  api(`/me/player/repeat?state=track&device_id=${encodeURIComponent(d.id)}`, { method:"PUT" }).catch(() => {});
   // Kontrollera att rätt låt faktiskt spelas, annars försök igen
   let st = null;
   for(let i = 0; i < 4; i++){
@@ -293,11 +298,12 @@ async function playUri(track){
     if(same && st.is_playing) return;
     if(i === 1){
       if(same) await api(`/me/player/play?device_id=${encodeURIComponent(d.id)}`, { method:"PUT" }).catch(() => {});
-      else await api(`/me/player/play?device_id=${encodeURIComponent(d.id)}`, { method:"PUT", body }).catch(() => {});
+      else await api(`/me/player/play?device_id=${encodeURIComponent(d.id)}`, { method:"PUT",
+        body: JSON.stringify({ uris:[track.uri], position_ms: pos }) }).catch(() => {});
     }
   }
   const diag = `enhet=${d.type}/${d.is_active ? "aktiv" : "inaktiv"}${d.is_restricted ? "/begränsad" : ""}, ` +
-    `rätt låt=${!!(st && st.item && st.item.uri === track.uri)}, spelar=${!!(st && st.is_playing)}, ` +
+    `rätt låt=${!!(st && st.item && st.item.uri === track.uri)}, spelar=${!!(st && st.is_playing)}, album=${track.album ? "ja" : "nej"}, ` +
     `låt-id=${track.uri.split(":").pop()}`;
   log("Spelade inte: " + diag);
   throw new Error("NOTPLAYING");
@@ -380,7 +386,7 @@ async function replay(){ if(currentTrack){ try{ await playUri(currentTrack); pau
 function markWrong(){
   if(!current) return;
   const key = current.a + "|" + current.t;
-  const cache = store.get("uris2", {}); delete cache[key]; store.set("uris2", cache);
+  const cache = store.get("uris3", {}); delete cache[key]; store.set("uris3", cache);
   store.set("wrong", [...new Set([...store.get("wrong", []), `${current.a} – ${current.t} (${current.y}) → ${currentTrack ? currentTrack.uri : "?"}`])]);
   $("btnWrong").textContent = "Markerad, tack!";
 }
